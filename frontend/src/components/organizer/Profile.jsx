@@ -1,228 +1,384 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { organizerAPI } from '../../services/api';
+import { userAPI, organizerAPI } from '../../services/api';
 import Navbar from '../common/Navbar';
 import Loader from '../common/Loader';
-import { FiSave, FiEdit } from 'react-icons/fi';
+import { FiSave, FiEdit, FiHeart, FiUsers, FiMail, FiExternalLink } from 'react-icons/fi';
 
-const OrganizerProfile = () => {
-  const { user } = useAuth();
+const INTEREST_OPTIONS = [
+  'Technical',
+  'Cultural',
+  'Sports',
+  'Literary',
+  'Arts',
+  'Gaming',
+  'Music',
+  'Dance',
+  'Drama',
+  'Photography',
+  'Other',
+];
+
+const ParticipantProfile = () => {
+  const { user, checkAuth } = useAuth();
   const [editing, setEditing] = useState(false);
-  const [organizerData, setOrganizerData] = useState(null);
   const [formData, setFormData] = useState({
-    name: '',
-    category: '',
-    description: '',
-    contactEmail: '',
+    firstName: '',
+    lastName: '',
     contactNumber: '',
-    discordWebhookUrl: '',
+    collegeName: '',
+    areasOfInterest: [],
   });
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [followedOrganizers, setFollowedOrganizers] = useState([]);
+  const [loadingOrganizers, setLoadingOrganizers] = useState(true);
 
   useEffect(() => {
-    fetchOrganizerProfile();
-  }, []);
-
-  const fetchOrganizerProfile = async () => {
-    try {
-      setLoading(true);
-      // Fetch the full organizer profile
-      const response = await organizerAPI.getById(user._id);
-      const orgData = response.data.organizer;
-      
-      setOrganizerData(orgData);
+    if (user) {
       setFormData({
-        name: orgData.name || '',
-        category: orgData.category || '',
-        description: orgData.description || '',
-        contactEmail: orgData.contactEmail || '',
-        contactNumber: orgData.contactNumber || '',
-        discordWebhookUrl: orgData.discordWebhookUrl || '',
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        contactNumber: user.contactNumber || '',
+        collegeName: user.collegeName || '',
+        areasOfInterest: user.areasOfInterest || [],
       });
-    } catch (error) {
-      console.error('Error fetching organizer profile:', error);
-      // Fallback to user data from context
-      if (user) {
-        setFormData({
-          name: user.name || '',
-          category: user.category || '',
-          description: user.description || '',
-          contactEmail: user.contactEmail || '',
-          contactNumber: user.contactNumber || '',
-          discordWebhookUrl: user.discordWebhookUrl || '',
-        });
-      }
-    } finally {
-      setLoading(false);
+      fetchFollowedOrganizers();
     }
+  }, [user]);
+
+  const fetchFollowedOrganizers = async () => {
+    try {
+      setLoadingOrganizers(true);
+      
+      // If user has followed organizers, fetch their details
+      if (user?.followedOrganizers && user.followedOrganizers.length > 0) {
+        const response = await organizerAPI.getAll();
+        const allOrganizers = response.data.organizers || [];
+        
+        // Filter to get only followed organizers
+        const followed = allOrganizers.filter(org => 
+          user.followedOrganizers.some(followedId => 
+            followedId.toString() === org._id.toString()
+          )
+        );
+        
+        setFollowedOrganizers(followed);
+      } else {
+        setFollowedOrganizers([]);
+      }
+    } catch (error) {
+      console.error('Error fetching followed organizers:', error);
+    } finally {
+      setLoadingOrganizers(false);
+    }
+  };
+
+  const toggleInterest = (interest) => {
+    if (!editing) return;
+    
+    setFormData(prev => ({
+      ...prev,
+      areasOfInterest: prev.areasOfInterest.includes(interest)
+        ? prev.areasOfInterest.filter(i => i !== interest)
+        : [...prev.areasOfInterest, interest]
+    }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      setSaving(true);
-      await organizerAPI.updateProfile(formData);
+      setLoading(true);
+      await userAPI.updateProfile(formData);
+      
+      // Refresh user data in context
+      await checkAuth();
+      
       alert('Profile updated successfully!');
       setEditing(false);
-      // Refresh the profile data
-      await fetchOrganizerProfile();
     } catch (error) {
       console.error('Error updating profile:', error);
       alert('Failed to update profile');
     } finally {
-      setSaving(false);
+      setLoading(false);
     }
   };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <Navbar />
-        <Loader text="Loading profile..." />
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />
-      <div className="max-w-3xl mx-auto px-4 py-8">
+      <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="card">
           <div className="flex justify-between items-center mb-6">
-            <h1 className="text-2xl font-bold text-gray-900">Organization Profile</h1>
+            <h1 className="text-2xl font-bold text-gray-900">My Profile</h1>
             <button
               onClick={() => setEditing(!editing)}
               className="btn-secondary flex items-center"
             >
               <FiEdit className="mr-2" />
-              {editing ? 'Cancel' : 'Edit'}
+              {editing ? 'Cancel' : 'Edit Profile'}
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-8">
+            {/* Personal Information Section */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Organization Name
-              </label>
-              <input
-                type="text"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="input"
-                disabled={!editing}
-              />
+              <h2 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b">
+                Personal Information
+              </h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    First Name
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.firstName}
+                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                    className="input"
+                    disabled={!editing}
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Last Name
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.lastName}
+                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                    className="input"
+                    disabled={!editing}
+                  />
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Email (Non-editable)
+                </label>
+                <input
+                  type="email"
+                  value={user?.email || ''}
+                  className="input bg-gray-100 cursor-not-allowed"
+                  disabled
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Contact Number
+                  </label>
+                  <input
+                    type="tel"
+                    value={formData.contactNumber}
+                    onChange={(e) => setFormData({ ...formData, contactNumber: e.target.value })}
+                    className="input"
+                    disabled={!editing}
+                    placeholder="1234567890"
+                    maxLength="10"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    College/Organization
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.collegeName}
+                    onChange={(e) => setFormData({ ...formData, collegeName: e.target.value })}
+                    className="input"
+                    disabled={!editing}
+                    placeholder={user?.participantType === 'iiit' ? 'IIIT Hyderabad' : 'Your College'}
+                  />
+                </div>
+              </div>
             </div>
 
+            {/* Areas of Interest Section */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Category
-              </label>
-              <select
-                value={formData.category}
-                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                className="input"
-                disabled={!editing}
-              >
-                <option value="">Select Category</option>
-                <option value="Technical">Technical</option>
-                <option value="Cultural">Cultural</option>
-                <option value="Sports">Sports</option>
-                <option value="Literary">Literary</option>
-                <option value="Arts">Arts</option>
-                <option value="Council">Council</option>
-                <option value="Fest Team">Fest Team</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
+              <div className="flex items-center justify-between mb-4 pb-2 border-b">
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Areas of Interest
+                </h2>
+                {!editing && (
+                  <span className="text-sm text-gray-600">
+                    {formData.areasOfInterest.length} selected
+                  </span>
+                )}
+              </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Description
-              </label>
-              <textarea
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="input"
-                rows={4}
-                disabled={!editing}
-                placeholder="Enter organization description..."
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Login Email (Non-editable)
-              </label>
-              <input
-                type="email"
-                value={organizerData?.email || user?.email || ''}
-                className="input bg-gray-100 cursor-not-allowed"
-                disabled
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Contact Email
-              </label>
-              <input
-                type="email"
-                value={formData.contactEmail}
-                onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
-                className="input"
-                disabled={!editing}
-                placeholder="contact@organization.com"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Contact Number
-              </label>
-              <input
-                type="tel"
-                value={formData.contactNumber}
-                onChange={(e) => setFormData({ ...formData, contactNumber: e.target.value })}
-                className="input"
-                disabled={!editing}
-                placeholder="1234567890"
-                maxLength="10"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Discord Webhook URL (Optional)
-              </label>
-              <input
-                type="url"
-                value={formData.discordWebhookUrl}
-                onChange={(e) => setFormData({ ...formData, discordWebhookUrl: e.target.value })}
-                className="input"
-                placeholder="https://discord.com/api/webhooks/..."
-                disabled={!editing}
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Auto-post new events to your Discord server
+              <p className="text-sm text-gray-600 mb-4">
+                Your interests help us recommend relevant events to you
               </p>
+
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                {INTEREST_OPTIONS.map((interest) => {
+                  const isSelected = formData.areasOfInterest.includes(interest);
+                  
+                  return (
+                    <button
+                      key={interest}
+                      type="button"
+                      onClick={() => toggleInterest(interest)}
+                      disabled={!editing}
+                      className={`p-3 rounded-lg border-2 transition-all font-medium text-sm ${
+                        isSelected
+                          ? 'border-primary-600 bg-primary-50 text-primary-700'
+                          : 'border-gray-200 bg-white text-gray-700'
+                      } ${
+                        editing 
+                          ? 'hover:border-primary-300 cursor-pointer' 
+                          : 'cursor-default opacity-90'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span>{interest}</span>
+                        {isSelected && (
+                          <svg className="w-4 h-4 ml-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {formData.areasOfInterest.length === 0 && !editing && (
+                <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <p className="text-sm text-yellow-800">
+                    <strong>No interests selected.</strong> Add your interests to get personalized event recommendations!
+                  </p>
+                </div>
+              )}
             </div>
 
+            {/* Save Button */}
             {editing && (
-              <button
-                type="submit"
-                disabled={saving}
-                className="btn-primary w-full flex items-center justify-center disabled:opacity-50"
-              >
-                <FiSave className="mr-2" />
-                {saving ? 'Saving...' : 'Save Changes'}
-              </button>
+              <div className="pt-6 border-t">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="btn-primary w-full flex items-center justify-center disabled:opacity-50"
+                >
+                  <FiSave className="mr-2" />
+                  {loading ? 'Saving Changes...' : 'Save Changes'}
+                </button>
+              </div>
             )}
           </form>
+        </div>
+
+        {/* Followed Clubs Section - Separate Card */}
+        <div className="card mt-6">
+          <div className="flex items-center justify-between mb-6 pb-2 border-b">
+            <h2 className="text-lg font-semibold text-gray-900 flex items-center">
+              <FiHeart className="mr-2 text-red-500" fill="currentColor" />
+              Followed Clubs
+            </h2>
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-gray-600">
+                {followedOrganizers.length} {followedOrganizers.length === 1 ? 'club' : 'clubs'}
+              </span>
+              <Link to="/clubs" className="text-sm text-primary-600 hover:text-primary-700 font-medium flex items-center">
+                Manage Follows
+                <FiExternalLink className="ml-1" size={14} />
+              </Link>
+            </div>
+          </div>
+
+          {loadingOrganizers ? (
+            <Loader text="Loading followed clubs..." />
+          ) : followedOrganizers.length === 0 ? (
+            <div className="p-8 bg-blue-50 border border-blue-200 rounded-lg text-center">
+              <FiHeart className="mx-auto text-5xl text-blue-300 mb-3" />
+              <h3 className="text-lg font-medium text-blue-900 mb-2">
+                No Followed Clubs Yet
+              </h3>
+              <p className="text-sm text-blue-800 mb-4">
+                Follow clubs to get personalized event recommendations and stay updated with their activities!
+              </p>
+              <Link to="/clubs" className="btn-primary inline-block">
+                Browse Clubs
+              </Link>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {followedOrganizers.map((org) => (
+                <Link
+                  key={org._id}
+                  to={`/organizer/${org._id}`}
+                  className="p-4 border-2 border-gray-200 rounded-lg hover:border-primary-300 hover:shadow-md transition-all bg-white group"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-gray-900 group-hover:text-primary-600 transition-colors">
+                        {org.name}
+                      </h3>
+                      <span className="inline-block mt-2 bg-primary-100 text-primary-800 text-xs px-2 py-1 rounded-full">
+                        {org.category}
+                      </span>
+                    </div>
+                    <div className="ml-2">
+                      <FiHeart className="text-red-500" fill="currentColor" size={20} />
+                    </div>
+                  </div>
+                  
+                  {org.description && (
+                    <p className="text-sm text-gray-600 mt-3 line-clamp-2">
+                      {org.description}
+                    </p>
+                  )}
+
+                  <div className="mt-3 pt-3 border-t border-gray-100 space-y-1">
+                    {org.contactEmail && (
+                      <div className="flex items-center text-xs text-gray-500">
+                        <FiMail className="mr-2 flex-shrink-0" size={12} />
+                        <span className="truncate">{org.contactEmail}</span>
+                      </div>
+                    )}
+                    {org.followers && org.followers.length > 0 && (
+                      <div className="flex items-center text-xs text-gray-500">
+                        <FiUsers className="mr-2 flex-shrink-0" size={12} />
+                        <span>{org.followers.length} followers</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mt-3 text-xs text-primary-600 font-medium group-hover:underline">
+                    View Details →
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+
+          {followedOrganizers.length > 0 && (
+            <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <p className="text-sm text-gray-700">
+                💡 <strong>Tip:</strong> Events from these clubs will appear higher in your browse results and recommendations!
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Additional Info Card */}
+        <div className="card mt-6 bg-gradient-to-br from-primary-50 to-purple-50 border-2 border-primary-200">
+          <h3 className="font-semibold text-gray-900 mb-2">💡 How Preferences Work</h3>
+          <ul className="text-sm text-gray-700 space-y-1">
+            <li>• <strong>Areas of Interest:</strong> Events matching your interests appear higher in browse results</li>
+            <li>• <strong>Followed Clubs:</strong> Get priority notifications for events from clubs you follow</li>
+            <li>• <strong>Personalized Dashboard:</strong> Your dashboard shows recommended events based on your preferences</li>
+          </ul>
         </div>
       </div>
     </div>
   );
 };
 
-export default OrganizerProfile;
+export default ParticipantProfile;
