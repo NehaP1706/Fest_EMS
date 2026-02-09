@@ -1,0 +1,41 @@
+const mongoose = require('mongoose');
+
+const passwordResetRequestSchema = new mongoose.Schema({
+  organizer: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Organizer',
+    required: true,
+  },
+  reason: {
+    type: String,
+    required: [true, 'Please provide a reason for password reset'],
+    trim: true,
+  },
+  status: {
+    type: String,
+    enum: ['pending', 'approved', 'rejected'],
+    default: 'pending',
+  },
+  
+  // Admin action
+  reviewedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+  },
+  reviewedAt: Date,
+  adminComments: String,
+  
+  // New password (generated on approval, sent to admin)
+  newPassword: {
+    type: String, // Plain text, only temporarily stored
+  },
+  
+  requestedAt: {
+    type: Date,
+    default: Date.now,
+  },
+});
+
+passwordResetRequestSchema.index({ organizer: 1, status: 1 });
+
+module.exports = mongoose.model('PasswordResetRequest', passwordResetRequestSchema);
