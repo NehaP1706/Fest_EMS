@@ -16,26 +16,29 @@ const passwordResetRequestSchema = new mongoose.Schema({
     enum: ['pending', 'approved', 'rejected'],
     default: 'pending',
   },
-  
-  // Admin action
+  newPassword: {
+    type: String,
+    // Stored temporarily for admin to share, then cleared
+  },
+  adminComments: {
+    type: String,
+    trim: true,
+  },
   reviewedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
   },
-  reviewedAt: Date,
-  adminComments: String,
-  
-  // New password (generated on approval, sent to admin)
-  newPassword: {
-    type: String, // Plain text, only temporarily stored
+  reviewedAt: {
+    type: Date,
   },
-  
   requestedAt: {
     type: Date,
     default: Date.now,
   },
 });
 
-passwordResetRequestSchema.index({ organizer: 1, status: 1 });
+// Index for faster queries
+passwordResetRequestSchema.index({ organizer: 1, requestedAt: -1 });
+passwordResetRequestSchema.index({ status: 1 });
 
 module.exports = mongoose.model('PasswordResetRequest', passwordResetRequestSchema);

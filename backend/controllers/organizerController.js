@@ -1,4 +1,5 @@
 const Organizer = require('../models/Organizer');
+const PasswordResetRequest = require('../models/PasswordResetRequest');
 const bcrypt = require('bcryptjs');
 
 exports.getAllOrganizers = async (req, res, next) => {
@@ -60,6 +61,65 @@ exports.changeOrganizerPassword = async (req, res, next) => {
     organizer.password = await bcrypt.hash(newPassword, 10);
     await organizer.save();
     res.json({ success: true, message: 'Password changed successfully' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Request password reset
+exports.requestPasswordReset = async (req, res, next) => {
+  try {
+    const { reason } = req.body;
+
+    if (!reason || reason.trim().length < 10) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide a detailed reason (at least 10 characters)',
+      });
+    }
+
+    // Check if there's already a pending request
+    const existingPending = await PasswordResetRequest.findOne({
+      organizer: req.organizer._id,
+      status: 'pending',
+    });
+
+    if (existingPending) {
+      return res.status(400).json({
+        success: false,
+        message: 'You already have a pending password reset request. Please wait for admin review.',
+      });
+    }
+
+    // Create new request
+    const resetRequest = await PasswordResetRequest.create({
+      organizer: req.organizer._id,
+      reason: reason.trim(),
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Password reset request submitted successfully',
+      request: resetRequest,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get organizer's own reset requests
+exports.getMyResetRequests = async (req, res, next) => {
+  try {
+    const requests = await PasswordResetRequest.find({
+      organizer: req.organizer._id,
+    })
+      .sort({ requestedAt: -1 })
+      .limit(10);
+
+    res.json({
+      success: true,
+      requests,
+    });
   } catch (error) {
     next(error);
   }

@@ -7,11 +7,15 @@ const {
   getOrganizer,
   updateOrganizerProfile,
   changeOrganizerPassword,
+  requestPasswordReset,
+  getMyResetRequests,
 } = require('../controllers/organizerController');
 
 router.get('/', getAllOrganizers);
 router.get('/:id', getOrganizer);
 router.put('/profile', protect, isOrganizer, updateOrganizerProfile);
 router.put('/change-password', protect, isOrganizer, changeOrganizerPassword);
+router.post('/request-password-reset', protect, isOrganizer, requestPasswordReset);
+router.get('/my-reset-requests', protect, isOrganizer, getMyResetRequests);
 
 module.exports = router;

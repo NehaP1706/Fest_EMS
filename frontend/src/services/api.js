@@ -47,6 +47,9 @@ export const userAPI = {
   updateProfile: (data) => api.put('/users/profile', data),
   changePassword: (data) => api.put('/users/change-password', data),
   followOrganizer: (organizerId) => api.post(`/users/follow/${organizerId}`),
+  changePassword: (data) => api.put('/users/change-password', data),
+  requestPasswordResetOTP: () => api.post('/users/request-password-reset-otp'),
+  resetPasswordWithOTP: (data) => api.post('/users/reset-password-otp', data),
 };
 
 // Event APIs
@@ -72,6 +75,9 @@ export const organizerAPI = {
   getAll: () => api.get('/organizers'),
   getById: (id) => api.get(`/organizers/${id}`),
   updateProfile: (data) => api.put('/organizers/profile', data),
+  changePassword: (data) => api.put('/organizers/change-password', data),
+  requestPasswordReset: (data) => api.post('/organizers/request-password-reset', data),
+  getMyResetRequests: () => api.get('/organizers/my-reset-requests'),
 };
 
 // Admin APIs
