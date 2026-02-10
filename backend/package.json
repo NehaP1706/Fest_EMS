@@ -7,10 +7,15 @@
     "start": "node server.js",
     "dev": "nodemon server.js"
   },
-  "keywords": ["events", "mern", "felicity"],
+  "keywords": [
+    "events",
+    "mern",
+    "felicity"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "axios": "^1.13.5",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.0.3",

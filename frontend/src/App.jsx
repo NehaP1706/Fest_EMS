@@ -22,6 +22,7 @@ import OrganizerEventDetail from './components/organizer/EventDetail';
 import QRScanner from './components/organizer/QRScanner';
 import MerchandiseApproval from './components/organizer/MerchandiseApproval';
 import OrganizerProfile from './components/organizer/Profile';
+import EditEvent from './components/organizer/EditEvent';
 
 // Admin pages
 import AdminDashboard from './components/admin/Dashboard';
@@ -84,6 +85,11 @@ function App() {
             <ProtectedRoute allowedRoles={['organizer']}>
               <CreateEvent />
             </ProtectedRoute>
+          } />
+          <Route path="/organizer/events/:id/edit" element={
+            <ProtectedRoute allowedRoles={['organizer']}>
+              <EditEvent />
+              </ProtectedRoute>
           } />
           <Route path="/organizer/events/:id" element={
             <ProtectedRoute allowedRoles={['organizer']}>

@@ -30,6 +30,7 @@ exports.createOrganizer = async (req, res, next) => {
       description,
       contactEmail,
       contactNumber,
+      status: 'active',
       createdBy: req.user._id,
     });
 
@@ -62,17 +63,30 @@ exports.createOrganizer = async (req, res, next) => {
 
 exports.getAllOrganizersAdmin = async (req, res, next) => {
   try {
-    const organizers = await Organizer.find()
+    const { status } = req.query;
+    const filter = {};
+
+    if (status && ['active', 'disabled', 'archived'].includes(status)) {
+      // Use a Regular Expression to match "active" OR "\"active\""
+      filter.status = { $regex: new RegExp(`^"?${status}"?$`, 'i') };
+    }
+
+    const organizers = await Organizer.find(filter)
       .select('-password')
       .sort({ createdAt: -1 });
 
-    res.json({ success: true, organizers });
+    res.json({ 
+      success: true, 
+      count: organizers.length,
+      organizers 
+    });
   } catch (error) {
     next(error);
   }
 };
 
-exports.deleteOrganizer = async (req, res, next) => {
+// Disable organizer (soft disable)
+exports.disableOrganizer = async (req, res, next) => {
   try {
     const organizer = await Organizer.findById(req.params.id);
 
@@ -80,13 +94,171 @@ exports.deleteOrganizer = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Organizer not found' });
     }
 
-    organizer.isActive = false;
+    if (organizer.status === 'disabled') {
+      return res.status(400).json({ success: false, message: 'Organizer is already disabled' });
+    }
+
+    organizer.status = 'disabled';
     await organizer.save();
 
-    res.json({ success: true, message: 'Organizer disabled' });
+    res.json({ 
+      success: true, 
+      message: 'Organizer disabled successfully',
+      organizer: {
+        _id: organizer._id,
+        name: organizer.name,
+        status: organizer.status,
+      }
+    });
   } catch (error) {
     next(error);
   }
+};
+
+// Enable organizer
+exports.enableOrganizer = async (req, res, next) => {
+  try {
+    const organizer = await Organizer.findById(req.params.id);
+
+    if (!organizer) {
+      return res.status(404).json({ success: false, message: 'Organizer not found' });
+    }
+
+    if (organizer.status === 'active') {
+      return res.status(400).json({ success: false, message: 'Organizer is already active' });
+    }
+
+    if (organizer.status === 'archived') {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Cannot enable archived organizer. Unarchive first.' 
+      });
+    }
+
+    organizer.status = 'active';
+    await organizer.save();
+
+    res.json({ 
+      success: true, 
+      message: 'Organizer enabled successfully',
+      organizer: {
+        _id: organizer._id,
+        name: organizer.name,
+        status: organizer.status,
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Archive organizer
+exports.archiveOrganizer = async (req, res, next) => {
+  try {
+    const { reason } = req.body;
+    const organizer = await Organizer.findById(req.params.id);
+
+    if (!organizer) {
+      return res.status(404).json({ success: false, message: 'Organizer not found' });
+    }
+
+    if (organizer.status === 'archived') {
+      return res.status(400).json({ success: false, message: 'Organizer is already archived' });
+    }
+
+    organizer.status = 'archived';
+    organizer.archivedAt = new Date();
+    organizer.archivedBy = req.user._id;
+    organizer.archiveReason = reason || 'No reason provided';
+    await organizer.save();
+
+    res.json({ 
+      success: true, 
+      message: 'Organizer archived successfully',
+      organizer: {
+        _id: organizer._id,
+        name: organizer.name,
+        status: organizer.status,
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Unarchive organizer
+exports.unarchiveOrganizer = async (req, res, next) => {
+  try {
+    const organizer = await Organizer.findById(req.params.id);
+
+    if (!organizer) {
+      return res.status(404).json({ success: false, message: 'Organizer not found' });
+    }
+
+    if (organizer.status !== 'archived') {
+      return res.status(400).json({ success: false, message: 'Organizer is not archived' });
+    }
+
+    organizer.status = 'disabled'; // Unarchive to disabled state for safety
+    organizer.archivedAt = undefined;
+    organizer.archivedBy = undefined;
+    organizer.archiveReason = undefined;
+    await organizer.save();
+
+    res.json({ 
+      success: true, 
+      message: 'Organizer unarchived successfully (status set to disabled)',
+      organizer: {
+        _id: organizer._id,
+        name: organizer.name,
+        status: organizer.status,
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Hard delete organizer (permanent deletion)
+exports.deleteOrganizer = async (req, res, next) => {
+  try {
+    const { confirmDelete } = req.body;
+
+    if (confirmDelete !== 'DELETE') {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Please confirm deletion by sending confirmDelete: "DELETE"' 
+      });
+    }
+
+    const organizer = await Organizer.findById(req.params.id);
+
+    if (!organizer) {
+      return res.status(404).json({ success: false, message: 'Organizer not found' });
+    }
+
+    // Delete associated password reset requests
+    await PasswordResetRequest.deleteMany({ organizer: organizer._id });
+
+    // Hard delete the organizer
+    await Organizer.findByIdAndDelete(req.params.id);
+
+    res.json({ 
+      success: true, 
+      message: 'Organizer permanently deleted from database',
+      deletedOrganizer: {
+        _id: organizer._id,
+        name: organizer.name,
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Legacy method - redirects to disable
+exports.deleteOrganizerLegacy = async (req, res, next) => {
+  return exports.disableOrganizer(req, res, next);
 };
 
 exports.getPasswordResetRequests = async (req, res, next) => {

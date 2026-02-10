@@ -4,7 +4,7 @@ const bcrypt = require('bcryptjs');
 
 exports.getAllOrganizers = async (req, res, next) => {
   try {
-    const organizers = await Organizer.find({ isActive: true })
+    const organizers = await Organizer.find({ status: 'active' })
       .select('-password -discordWebhookUrl')
       .sort({ name: 1 });
 

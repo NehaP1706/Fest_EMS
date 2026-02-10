@@ -26,6 +26,37 @@ const customFieldSchema = new mongoose.Schema({
   },
 });
 
+// NEW: Merchandise item schema
+const merchandiseItemSchema = new mongoose.Schema({
+  itemId: {
+    type: String,
+    required: true,
+  },
+  itemName: {
+    type: String,
+    required: true,
+  },
+  description: String,
+  purchaseLimit: {
+    type: Number,
+    default: 1, // per participant
+  },
+  variants: [{
+    variantId: String,
+    name: String, // e.g., "Large - Black"
+    size: String,
+    color: String,
+    stock: {
+      type: Number,
+      default: 0,
+    },
+    price: {
+      type: Number,
+      required: true,
+    },
+  }],
+});
+
 const eventSchema = new mongoose.Schema({
   name: {
     type: String,
@@ -71,7 +102,7 @@ const eventSchema = new mongoose.Schema({
     default: 0,
   },
   
-  // Pricing
+  // Pricing (for normal events)
   registrationFee: {
     type: Number,
     default: 0,
@@ -106,24 +137,8 @@ const eventSchema = new mongoose.Schema({
     },
   },
   
-  // Merchandise specific fields
-  merchandiseDetails: {
-    itemName: String,
-    variants: [{
-      name: String, // e.g., "Size S - Black"
-      size: String,
-      color: String,
-      stock: {
-        type: Number,
-        default: 0,
-      },
-      price: Number,
-    }],
-    purchaseLimit: {
-      type: Number,
-      default: 1, // per participant
-    },
-  },
+  // NEW: Merchandise items (array of items, each with variants)
+  merchandiseItems: [merchandiseItemSchema],
   
   // Analytics
   totalRevenue: {

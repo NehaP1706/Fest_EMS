@@ -83,8 +83,12 @@ export const organizerAPI = {
 // Admin APIs
 export const adminAPI = {
   createOrganizer: (data) => api.post('/admin/organizers', data),
-  getAllOrganizers: () => api.get('/admin/organizers'),
-  deleteOrganizer: (id) => api.delete(`/admin/organizers/${id}`),
+  getAllOrganizers: (params) => api.get('/admin/organizers', { params }),
+  enableOrganizer: (id) => api.patch(`/admin/organizers/${id}/enable`),
+  disableOrganizer: (id) => api.patch(`/admin/organizers/${id}/disable`),
+  archiveOrganizer: (id, data) => api.patch(`/admin/organizers/${id}/archive`, data),
+  unarchiveOrganizer: (id) => api.patch(`/admin/organizers/${id}/unarchive`),
+  deleteOrganizer: (id, data) => api.delete(`/admin/organizers/${id}`, { data }),
   getPasswordResets: () => api.get('/admin/password-resets'),
   approveReset: (id) => api.post(`/admin/password-resets/${id}/approve`),
   rejectReset: (id, data) => api.post(`/admin/password-resets/${id}/reject`, data),

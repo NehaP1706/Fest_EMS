@@ -41,7 +41,14 @@ const organizerSchema = new mongoose.Schema({
     default: '',
   },
   
-  // Status
+  // Status - Updated to support multiple states
+  status: {
+    type: String,
+    enum: ['active', 'disabled', 'archived'],
+    default: 'active',
+  },
+  
+  // Keep isActive for backward compatibility but it will be derived
   isActive: {
     type: Boolean,
     default: true,
@@ -58,6 +65,19 @@ const organizerSchema = new mongoose.Schema({
     ref: 'User',
     required: true,
   },
+  
+  // Archive metadata
+  archivedAt: {
+    type: Date,
+  },
+  archivedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+  },
+  archiveReason: {
+    type: String,
+  },
+  
   createdAt: {
     type: Date,
     default: Date.now,
@@ -68,9 +88,19 @@ const organizerSchema = new mongoose.Schema({
   },
 });
 
+// Pre-save middleware to sync isActive with status
 organizerSchema.pre('save', function(next) {
   this.updatedAt = Date.now();
+  
+  // Sync isActive based on status for backward compatibility
+  this.isActive = this.status === 'active';
+  
   next();
+});
+
+// Virtual to check if organizer can login
+organizerSchema.virtual('canLogin').get(function() {
+  return this.status === 'active';
 });
 
 module.exports = mongoose.model('Organizer', organizerSchema);

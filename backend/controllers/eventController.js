@@ -1,5 +1,6 @@
 const Event = require('../models/Event');
 const Organizer = require('../models/Organizer');
+const { sendDiscordNotification } = require('../utils/DiscordWebhook');
 
 // @desc    Get all events with filters
 // @route   GET /api/events
@@ -265,14 +266,30 @@ exports.createEvent = async (req, res, next) => {
     const eventData = {
       ...req.body,
       organizer: req.organizer._id,
-      status: 'draft',
+      status: req.body.status || 'draft',
     };
 
     const event = await Event.create(eventData);
 
+    // If event is published immediately, send Discord notification
+    if (event.status === 'published') {
+      const organizer = await Organizer.findById(req.organizer._id);
+      if (organizer.discordWebhookUrl) {
+        // Send notification asynchronously (don't wait for it)
+        sendDiscordNotification(
+          organizer.discordWebhookUrl,
+          event,
+          organizer,
+          'published'
+        ).catch(err => console.error('Discord notification failed:', err));
+      }
+    }
+
     res.status(201).json({
       success: true,
-      message: 'Event created as draft',
+      message: event.status === 'published' 
+        ? 'Event published successfully' 
+        : 'Event created as draft',
       event,
     });
   } catch (error) {
@@ -302,6 +319,8 @@ exports.updateEvent = async (req, res, next) => {
       });
     }
 
+    const oldStatus = event.status;
+
     // Check edit permissions based on status
     if (event.status === 'draft') {
       // Full edit allowed
@@ -312,12 +331,50 @@ exports.updateEvent = async (req, res, next) => {
       allowedFields.forEach(field => {
         if (req.body[field] !== undefined) event[field] = req.body[field];
       });
+      
+      // Allow status change
+      if (req.body.status) event.status = req.body.status;
     } else {
       // Only status change allowed
       if (req.body.status) event.status = req.body.status;
     }
 
     await event.save();
+
+    // Send Discord notification for status changes
+    const organizer = await Organizer.findById(req.organizer._id);
+    if (organizer.discordWebhookUrl) {
+      // Draft → Published
+      if (oldStatus === 'draft' && event.status === 'published') {
+        sendDiscordNotification(
+          organizer.discordWebhookUrl,
+          event,
+          organizer,
+          'published'
+        ).catch(err => console.error('Discord notification failed:', err));
+      }
+      // Any → Closed/Cancelled
+      else if (event.status === 'closed' && oldStatus !== 'closed') {
+        sendDiscordNotification(
+          organizer.discordWebhookUrl,
+          event,
+          organizer,
+          'cancelled'
+        ).catch(err => console.error('Discord notification failed:', err));
+      }
+      // Important updates to published events
+      else if (event.status === 'published' && oldStatus === 'published') {
+        // Only notify if deadline or description changed
+        if (req.body.registrationDeadline || req.body.description) {
+          sendDiscordNotification(
+            organizer.discordWebhookUrl,
+            event,
+            organizer,
+            'updated'
+          ).catch(err => console.error('Discord notification failed:', err));
+        }
+      }
+    }
 
     res.json({
       success: true,

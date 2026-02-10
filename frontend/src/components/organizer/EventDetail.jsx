@@ -165,7 +165,7 @@ const OrganizerEventDetail = () => {
             </div>
             <div className="flex gap-2">
               <button
-                onClick={() => navigate(`/organizer/create-event?edit=${id}`)}
+                onClick={() => navigate(`/organizer/events/${event._id}/edit`)}
                 className="btn-secondary flex items-center"
                 disabled={event.status === 'completed'}
               >
