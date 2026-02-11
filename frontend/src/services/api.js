@@ -7,9 +7,10 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 30000, // 30 second timeout
 });
 
-// Add token to requests
+// Request interceptor - Add token to requests
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
@@ -21,15 +22,48 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Handle responses
+// Response interceptor - Handle errors and token expiration
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    // Handle 401 Unauthorized (token expired or invalid)
     if (error.response?.status === 401) {
+      const currentPath = window.location.pathname;
+      
+      // Only redirect to login if not already there
+      if (!currentPath.includes('/login') && !currentPath.includes('/register')) {
+        console.log('Token expired or invalid, redirecting to login...');
+        
+        // Clear auth data
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        localStorage.removeItem('role');
+        localStorage.removeItem('loginTime');
+        
+        // Show session expired message
+        const sessionExpired = error.response?.data?.code === 'TOKEN_EXPIRED';
+        if (sessionExpired) {
+          // Store a flag to show session expired message
+          sessionStorage.setItem('sessionExpired', 'true');
+        }
+        
+        // Redirect to login
+        window.location.href = '/login';
+      }
+    }
+    
+    // Handle 403 Forbidden (account disabled)
+    if (error.response?.status === 403) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      localStorage.removeItem('role');
+      localStorage.removeItem('loginTime');
+      
+      // Store reason for logout
+      sessionStorage.setItem('logoutReason', error.response?.data?.message || 'Access forbidden');
       window.location.href = '/login';
     }
+    
     return Promise.reject(error);
   }
 );
@@ -46,16 +80,16 @@ export const userAPI = {
   setPreferences: (data) => api.put('/users/preferences', data),
   updateProfile: (data) => api.put('/users/profile', data),
   changePassword: (data) => api.put('/users/change-password', data),
-  followOrganizer: (organizerId) => api.post(`/users/follow/${organizerId}`),
-  changePassword: (data) => api.put('/users/change-password', data),
   requestPasswordResetOTP: () => api.post('/users/request-password-reset-otp'),
   resetPasswordWithOTP: (data) => api.post('/users/reset-password-otp', data),
+  followOrganizer: (organizerId) => api.post(`/users/follow/${organizerId}`),
 };
 
 // Event APIs
 export const eventAPI = {
   getAll: (params) => api.get('/events', { params }),
   getTrending: () => api.get('/events/trending'),
+  getRecommended: () => api.get('/events/recommended'),
   getById: (id) => api.get(`/events/${id}`),
   create: (data) => api.post('/events', data),
   update: (id, data) => api.put(`/events/${id}`, data),
@@ -83,12 +117,8 @@ export const organizerAPI = {
 // Admin APIs
 export const adminAPI = {
   createOrganizer: (data) => api.post('/admin/organizers', data),
-  getAllOrganizers: (params) => api.get('/admin/organizers', { params }),
-  enableOrganizer: (id) => api.patch(`/admin/organizers/${id}/enable`),
-  disableOrganizer: (id) => api.patch(`/admin/organizers/${id}/disable`),
-  archiveOrganizer: (id, data) => api.patch(`/admin/organizers/${id}/archive`, data),
-  unarchiveOrganizer: (id) => api.patch(`/admin/organizers/${id}/unarchive`),
-  deleteOrganizer: (id, data) => api.delete(`/admin/organizers/${id}`, { data }),
+  getAllOrganizers: () => api.get('/admin/organizers'),
+  deleteOrganizer: (id) => api.delete(`/admin/organizers/${id}`),
   getPasswordResets: () => api.get('/admin/password-resets'),
   approveReset: (id) => api.post(`/admin/password-resets/${id}/approve`),
   rejectReset: (id, data) => api.post(`/admin/password-resets/${id}/reject`, data),

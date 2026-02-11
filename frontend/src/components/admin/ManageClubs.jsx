@@ -406,7 +406,8 @@ const ManageClubs = () => {
 
                         {/* Action Dropdown */}
                         {showActionMenu === org._id && (
-                          <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border z-10">
+                          <div className={`absolute right-0 w-56 bg-white rounded-lg shadow-lg border z-20 
+                            ${organizers.indexOf(org) >= organizers.length - 2 ? 'bottom-full mb-2' : 'mt-2'}`}>
                             {getAvailableActions(org).map((action) => (
                               <button
                                 key={action.key}

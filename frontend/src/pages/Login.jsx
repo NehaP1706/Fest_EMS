@@ -1,20 +1,46 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { FiMail, FiLock, FiAlertCircle } from 'react-icons/fi';
+import { FiMail, FiLock, FiAlertCircle, FiClock } from 'react-icons/fi';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [sessionExpiredMsg, setSessionExpiredMsg] = useState('');
+  const [logoutReason, setLogoutReason] = useState('');
   
   const { login } = useAuth();
   const navigate = useNavigate();
 
+  useEffect(() => {
+    // Check for session expired flag
+    const sessionExpired = sessionStorage.getItem('sessionExpired');
+    if (sessionExpired === 'true') {
+      setSessionExpiredMsg('Your session has expired. Please log in again.');
+      sessionStorage.removeItem('sessionExpired');
+      
+      // Auto-clear message after 10 seconds
+      setTimeout(() => setSessionExpiredMsg(''), 10000);
+    }
+
+    // Check for logout reason
+    const reason = sessionStorage.getItem('logoutReason');
+    if (reason) {
+      setLogoutReason(reason);
+      sessionStorage.removeItem('logoutReason');
+      
+      // Auto-clear message after 10 seconds
+      setTimeout(() => setLogoutReason(''), 10000);
+    }
+  }, []);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setSessionExpiredMsg('');
+    setLogoutReason('');
     setLoading(true);
 
     try {
@@ -45,6 +71,27 @@ const Login = () => {
           <p className="text-gray-600 mt-2">Sign in to your account</p>
         </div>
         
+        {/* Session Expired Notice */}
+        {sessionExpiredMsg && (
+          <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg mb-6 flex items-start">
+            <FiClock className="mt-0.5 mr-2 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-medium">{sessionExpiredMsg}</p>
+              <p className="text-xs mt-1">For security, sessions expire after 7 days of inactivity.</p>
+            </div>
+          </div>
+        )}
+
+        {/* Logout Reason Notice */}
+        {logoutReason && (
+          <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg mb-6 flex items-start">
+            <FiAlertCircle className="mt-0.5 mr-2 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-medium">{logoutReason}</p>
+            </div>
+          </div>
+        )}
+
         {/* Error Message */}
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 flex items-start">
@@ -132,6 +179,12 @@ const Login = () => {
           <div className="bg-gray-50 rounded-lg p-3 text-xs font-mono text-gray-700">
             <p>Email: admin@felicity.com</p>
             <p>Password: Admin@123456</p>
+          </div>
+          
+          <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+            <p className="text-xs text-blue-800 text-center">
+              🔒 Sessions persist for 7 days and automatically refresh when you use the app
+            </p>
           </div>
         </div>
       </div>
