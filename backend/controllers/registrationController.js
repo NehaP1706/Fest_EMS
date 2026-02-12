@@ -117,3 +117,76 @@ exports.cancelRegistration = async (req, res, next) => {
     next(error);
   }
 };
+
+exports.getEventRegistrations = async (req, res, next) => {
+  try {
+    const { eventId } = req.params;
+    
+    // Verify the event belongs to this organizer
+    const event = await Event.findById(eventId);
+    
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: 'Event not found',
+      });
+    }
+    
+    if (event.organizer.toString() !== req.organizer._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to view registrations for this event',
+      });
+    }
+    
+    // Fetch all registrations for this event
+    const registrations = await Registration.find({ event: eventId })
+      .populate('participant', 'firstName lastName email contactNumber participantType')
+      .sort({ registeredAt: -1 });
+    
+    res.json({
+      success: true,
+      count: registrations.length,
+      registrations,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.getEventPurchases = async (req, res, next) => {
+  try {
+    const { eventId } = req.params;
+    
+    // Verify the event belongs to this organizer
+    const event = await Event.findById(eventId);
+    
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: 'Event not found',
+      });
+    }
+    
+    if (event.organizer.toString() !== req.organizer._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to view purchases for this event',
+      });
+    }
+    
+    // Fetch all merchandise purchases for this event
+    const MerchandisePurchase = require('../models/MerchandisePurchase');
+    const purchases = await MerchandisePurchase.find({ event: eventId })
+      .populate('participant', 'firstName lastName email contactNumber participantType')
+      .sort({ purchaseDate: -1 });
+    
+    res.json({
+      success: true,
+      count: purchases.length,
+      purchases,
+    });
+  } catch (error) {
+    next(error);
+  }
+};

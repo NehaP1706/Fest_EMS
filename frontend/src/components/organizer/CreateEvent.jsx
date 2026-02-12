@@ -228,7 +228,10 @@ const CreateEvent = () => {
 
     if (formData.eventType === 'merchandise') {
       eventData.merchandiseItems = merchandiseItems;
-    } else {
+    }
+    // Always include custom form fields regardless of event type
+    if (customFields.length > 0) {
+      // send in backend schema: customForm.fields
       eventData.customForm = { fields: customFields };
     }
 
@@ -610,13 +613,15 @@ const CreateEvent = () => {
             </div>
           )}
 
-          {/* Custom Form Section (for normal events) */}
-          {formData.eventType === 'normal' && (
-            <div className="mb-8">
+          {/* Custom Form Section (for all event types) */}
+          <div className="mb-8">
               <div className="flex items-center justify-between mb-4 pb-2 border-b">
                 <h2 className="text-xl font-semibold text-gray-900">
                   Custom Registration Form (Optional)
                 </h2>
+                <p className="text-xs text-gray-500 mt-1">
+                  Collect additional info from participants at registration
+                </p>
                 <button
                   type="button"
                   onClick={handleAddCustomField}
@@ -710,7 +715,6 @@ const CreateEvent = () => {
                 </div>
               )}
             </div>
-          )}
 
           {/* Action Buttons */}
           <div className="flex gap-4 pt-6 border-t">

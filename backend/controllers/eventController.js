@@ -263,10 +263,18 @@ exports.getEvent = async (req, res, next) => {
 // @access  Private (Organizer)
 exports.createEvent = async (req, res, next) => {
   try {
+    // Accept legacy `customRegistrationForm` shape from older frontends and
+    // map it to the schema-backed `customForm.fields` so data isn't lost.
+    const body = { ...req.body };
+    if (body.customRegistrationForm && !body.customForm) {
+      body.customForm = { fields: body.customRegistrationForm };
+      delete body.customRegistrationForm;
+    }
+
     const eventData = {
-      ...req.body,
+      ...body,
       organizer: req.organizer._id,
-      status: req.body.status || 'draft',
+      status: body.status || 'draft',
     };
 
     const event = await Event.create(eventData);
@@ -323,8 +331,15 @@ exports.updateEvent = async (req, res, next) => {
 
     // Check edit permissions based on status
     if (event.status === 'draft') {
+      // Accept legacy `customRegistrationForm` in updates as well and map it
+      const updateBody = { ...req.body };
+      if (updateBody.customRegistrationForm && !updateBody.customForm) {
+        updateBody.customForm = { fields: updateBody.customRegistrationForm };
+        delete updateBody.customRegistrationForm;
+      }
+
       // Full edit allowed
-      Object.assign(event, req.body);
+      Object.assign(event, updateBody);
     } else if (event.status === 'published') {
       // Limited edit
       const allowedFields = ['description', 'registrationDeadline', 'registrationLimit'];

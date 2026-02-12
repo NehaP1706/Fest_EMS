@@ -102,6 +102,7 @@ export const registrationAPI = {
   register: (eventId, data) => api.post(`/registrations/${eventId}`, data),
   getMyRegistrations: () => api.get('/registrations/my-registrations'),
   cancel: (registrationId) => api.delete(`/registrations/${registrationId}`),
+  getEventRegistrations: (eventId) => api.get(`/registrations/event/${eventId}`),
 };
 
 // Organizer APIs
@@ -133,6 +134,7 @@ export const merchandiseAPI = {
   getPendingApprovals: () => api.get('/merchandise/pending-approvals'),
   approve: (purchaseId) => api.post(`/merchandise/${purchaseId}/approve`),
   reject: (purchaseId, data) => api.post(`/merchandise/${purchaseId}/reject`, data),
+  getEventPurchases: (eventId) => api.get(`/merchandise/event/${eventId}`), 
 };
 
 // Discussion APIs

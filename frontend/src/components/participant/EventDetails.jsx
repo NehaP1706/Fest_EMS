@@ -5,7 +5,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import Navbar from '../common/Navbar';
 import Loader from '../common/Loader';
 import DiscussionForum from '../shared/DiscussionForum';
-import { FiCalendar, FiClock, FiUsers, FiDollarSign, FiTag } from 'react-icons/fi';
+import { FiCalendar, FiClock, FiUsers, FiDollarSign, FiTag, FiX, FiCheck } from 'react-icons/fi';
 
 const EventDetails = () => {
   const { id } = useParams();
@@ -14,16 +14,33 @@ const EventDetails = () => {
   const [event, setEvent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [registering, setRegistering] = useState(false);
+  const [showRegistrationModal, setShowRegistrationModal] = useState(false);
   const [formData, setFormData] = useState({});
+  const [myRegistration, setMyRegistration] = useState(null);
+  const [checkingRegistration, setCheckingRegistration] = useState(true);
+
+  // Accept either legacy `customRegistrationForm` or new `customForm.fields`
+  const formFields = event ? (event.customRegistrationForm || event.customForm?.fields || []) : [];
 
   useEffect(() => {
     fetchEvent();
+    checkExistingRegistration();
   }, [id]);
 
   const fetchEvent = async () => {
     try {
       const response = await eventAPI.getById(id);
       setEvent(response.data.event);
+      
+      // Initialize form data with empty values (accept legacy or new shape)
+      const formFields = response.data.event.customRegistrationForm || response.data.event.customForm?.fields || [];
+      if (formFields && formFields.length > 0) {
+        const initialData = {};
+        formFields.forEach(field => {
+          initialData[field.fieldId] = field.fieldType === 'checkbox' ? [] : '';
+        });
+        setFormData(initialData);
+      }
     } catch (error) {
       console.error('Error fetching event:', error);
     } finally {
@@ -31,16 +48,253 @@ const EventDetails = () => {
     }
   };
 
+  const checkExistingRegistration = async () => {
+    try {
+      setCheckingRegistration(true);
+      const response = await registrationAPI.getMyRegistrations();
+      const registrations = response.data.registrations || [];
+      
+      // Check if already registered for this event
+      // Handle both populated and non-populated event field
+      const existingReg = registrations.find(reg => {
+        const eventId = typeof reg.event === 'object' ? reg.event._id : reg.event;
+        return eventId === id && reg.status !== 'cancelled';
+      });
+      
+      setMyRegistration(existingReg || null);
+    } catch (error) {
+      console.error('Error checking registration:', error);
+      setMyRegistration(null);
+    } finally {
+      setCheckingRegistration(false);
+    }
+  };
+
+  const handleRegisterClick = () => {
+    // Check if already registered
+    if (myRegistration) {
+      alert('You are already registered for this event!');
+      return;
+    }
+
+    // Check if event has custom form fields
+    if (formFields && formFields.length > 0) {
+      // Show modal with form
+      setShowRegistrationModal(true);
+    } else {
+      // No form, register directly
+      handleRegister();
+    }
+  };
+
   const handleRegister = async () => {
     try {
       setRegistering(true);
-      await registrationAPI.register(id, { formResponses: formData });
+      
+      // Validate required fields if custom form exists
+      if (formFields && formFields.length > 0) {
+        const errors = validateForm();
+        if (errors.length > 0) {
+          alert('Please fill in all required fields:\n' + errors.join('\n'));
+          setRegistering(false);
+          return;
+        }
+      }
+      
+      const response = await registrationAPI.register(id, { formResponses: formData });
       alert('Registration successful! Check your email for the ticket.');
-      navigate('/dashboard');
+      setShowRegistrationModal(false);
+      
+      // Immediately update registration status
+      setMyRegistration(response.data.registration);
+      
+      // Refresh data
+      await Promise.all([
+        checkExistingRegistration(),
+        fetchEvent()
+      ]);
     } catch (error) {
       alert(error.response?.data?.message || 'Registration failed');
     } finally {
       setRegistering(false);
+    }
+  };
+
+  const handleCancelRegistration = async () => {
+    if (!myRegistration) {
+      alert('No registration found to cancel');
+      return;
+    }
+
+    if (!confirm('Are you sure you want to cancel your registration for this event? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      setRegistering(true);
+      await registrationAPI.cancel(myRegistration._id);
+      
+      // Immediately clear registration state BEFORE alert and re-fetch
+      // so the UI updates correctly even if re-fetch returns stale data
+      setMyRegistration(null);
+      
+      // Refresh event data (counts etc.) — checkExistingRegistration is
+      // intentionally omitted here because the status filter fix handles it,
+      // but we still call it to stay in sync
+      await fetchEvent();
+      await checkExistingRegistration();
+
+      // Show success message AFTER state is updated
+      alert('Registration cancelled successfully!');
+    } catch (error) {
+      console.error('Error cancelling registration:', error);
+      
+      // Re-check real status from server on error
+      await checkExistingRegistration();
+      alert(error.response?.data?.message || 'Failed to cancel registration');
+    } finally {
+      setRegistering(false);
+    }
+  };
+
+  const validateForm = () => {
+    const errors = [];
+    
+    // validate against whichever form definition exists
+    const toValidate = formFields || [];
+    toValidate.forEach(field => {
+      if (field.required) {
+        const value = formData[field.fieldId];
+        
+        if (!value || (Array.isArray(value) && value.length === 0) || value === '') {
+          errors.push(`• ${field.label} is required`);
+        }
+      }
+    });
+    
+    return errors;
+  };
+
+  const handleFormFieldChange = (fieldId, value, fieldType) => {
+    setFormData(prev => ({
+      ...prev,
+      [fieldId]: value
+    }));
+  };
+
+  const renderFormField = (field) => {
+    const value = formData[field.fieldId];
+
+    switch (field.fieldType) {
+      case 'text':
+      case 'email':
+      case 'number':
+        return (
+          <input
+            type={field.fieldType}
+            value={value || ''}
+            onChange={(e) => handleFormFieldChange(field.fieldId, e.target.value, field.fieldType)}
+            className="input"
+            placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
+            required={field.required}
+          />
+        );
+
+      case 'textarea':
+        return (
+          <textarea
+            value={value || ''}
+            onChange={(e) => handleFormFieldChange(field.fieldId, e.target.value, field.fieldType)}
+            className="input"
+            rows={4}
+            placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
+            required={field.required}
+          />
+        );
+
+      case 'dropdown':
+        return (
+          <select
+            value={value || ''}
+            onChange={(e) => handleFormFieldChange(field.fieldId, e.target.value, field.fieldType)}
+            className="input"
+            required={field.required}
+          >
+            <option value="">Select {field.label.toLowerCase()}</option>
+            {field.options.map((option, index) => (
+              <option key={index} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        );
+
+      case 'radio':
+        return (
+          <div className="space-y-2">
+            {field.options.map((option, index) => (
+              <label key={index} className="flex items-center cursor-pointer">
+                <input
+                  type="radio"
+                  name={field.fieldId}
+                  value={option}
+                  checked={value === option}
+                  onChange={(e) => handleFormFieldChange(field.fieldId, e.target.value, field.fieldType)}
+                  className="mr-2"
+                  required={field.required}
+                />
+                <span className="text-gray-700">{option}</span>
+              </label>
+            ))}
+          </div>
+        );
+
+      case 'checkbox':
+        return (
+          <div className="space-y-2">
+            {field.options.map((option, index) => (
+              <label key={index} className="flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  value={option}
+                  checked={Array.isArray(value) && value.includes(option)}
+                  onChange={(e) => {
+                    const currentValues = Array.isArray(value) ? value : [];
+                    const newValues = e.target.checked
+                      ? [...currentValues, option]
+                      : currentValues.filter(v => v !== option);
+                    handleFormFieldChange(field.fieldId, newValues, field.fieldType);
+                  }}
+                  className="mr-2"
+                />
+                <span className="text-gray-700">{option}</span>
+              </label>
+            ))}
+          </div>
+        );
+
+      case 'date':
+        return (
+          <input
+            type="date"
+            value={value || ''}
+            onChange={(e) => handleFormFieldChange(field.fieldId, e.target.value, field.fieldType)}
+            className="input"
+            required={field.required}
+          />
+        );
+
+      default:
+        return (
+          <input
+            type="text"
+            value={value || ''}
+            onChange={(e) => handleFormFieldChange(field.fieldId, e.target.value, field.fieldType)}
+            className="input"
+            placeholder={field.placeholder}
+            required={field.required}
+          />
+        );
     }
   };
 
@@ -55,16 +309,27 @@ const EventDetails = () => {
 
   const canRegister = () => {
     if (!event) return false;
+    if (myRegistration) return false; // Already registered
+    
     const now = new Date();
     const deadline = new Date(event.registrationDeadline);
     if (now > deadline) return false;
+    
     if (event.registrationLimit && event.currentRegistrations >= event.registrationLimit) {
       return false;
     }
+    
     return true;
   };
 
-  if (loading) return <Loader />;
+  if (loading || checkingRegistration) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Navbar />
+        <Loader text="Loading event details..." />
+      </div>
+    );
+  }
 
   if (!event) {
     return (
@@ -94,7 +359,7 @@ const EventDetails = () => {
                 ? 'bg-purple-100 text-purple-800'
                 : 'bg-blue-100 text-blue-800'
             }`}>
-              {event.eventType}
+              {event.eventType === 'merchandise' ? 'Merchandise' : 'Normal Event'}
             </span>
           </div>
 
@@ -156,12 +421,34 @@ const EventDetails = () => {
             </div>
           )}
 
-          {/* Register Button */}
-          {canRegister() ? (
+          {/* Registration Status / Actions */}
+          {myRegistration ? (
+            <div className="space-y-3">
+              <div className="bg-green-50 border-2 border-green-200 text-green-800 px-4 py-4 rounded-lg flex items-center justify-between">
+                <div className="flex items-center">
+                  <FiCheck className="mr-3 flex-shrink-0" size={24} />
+                  <div>
+                    <p className="font-semibold">You're registered for this event!</p>
+                    <p className="text-sm mt-1">
+                      Ticket ID: <span className="font-mono">{myRegistration.ticketId}</span>
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              <button
+                onClick={handleCancelRegistration}
+                disabled={registering}
+                className="w-full btn-danger py-3 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {registering ? 'Cancelling...' : 'Cancel Registration'}
+              </button>
+            </div>
+          ) : canRegister() ? (
             <button
-              onClick={handleRegister}
+              onClick={handleRegisterClick}
               disabled={registering}
-              className="w-full btn-primary py-3 text-lg disabled:opacity-50"
+              className="w-full btn-primary py-3 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {registering ? 'Registering...' : `Register Now ${event.registrationFee > 0 ? `- ₹${event.registrationFee}` : ''}`}
             </button>
@@ -180,6 +467,102 @@ const EventDetails = () => {
           <DiscussionForum eventId={id} />
         </div>
       </div>
+
+      {/* Registration Form Modal */}
+      {showRegistrationModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-gray-900">Complete Registration</h2>
+              <button
+                onClick={() => setShowRegistrationModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+                disabled={registering}
+              >
+                <FiX size={24} />
+              </button>
+            </div>
+
+            <div className="p-6">
+              {/* Event Summary */}
+              <div className="bg-primary-50 border border-primary-200 rounded-lg p-4 mb-6">
+                <h3 className="font-semibold text-primary-900 mb-2">{event.name}</h3>
+                <div className="text-sm text-primary-700 space-y-1">
+                  <p>📅 {formatDate(event.eventStartDate)}</p>
+                  {event.registrationFee > 0 && (
+                    <p className="font-medium">💰 Registration Fee: ₹{event.registrationFee}</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Custom Form Fields */}
+              {formFields && formFields.length > 0 ? (
+                <form onSubmit={(e) => { e.preventDefault(); handleRegister(); }} className="space-y-6">
+                  <div className="space-y-4">
+                    <h3 className="font-semibold text-gray-900 text-lg mb-4">
+                      Please fill in the following information:
+                    </h3>
+                    
+                    {formFields.map((field) => (
+                      <div key={field.fieldId}>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          {field.label}
+                          {field.required && <span className="text-red-500 ml-1">*</span>}
+                        </label>
+                        {renderFormField(field)}
+                        {field.placeholder && !['text', 'email', 'textarea'].includes(field.fieldType) && (
+                          <p className="text-xs text-gray-500 mt-1">{field.placeholder}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-4 pt-6 border-t">
+                    <button
+                      type="button"
+                      onClick={() => setShowRegistrationModal(false)}
+                      className="flex-1 btn-secondary"
+                      disabled={registering}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={registering}
+                      className="flex-1 btn-primary disabled:opacity-50"
+                    >
+                      {registering ? 'Processing...' : 'Complete Registration'}
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-gray-600 mb-4">
+                    No additional information required. Click below to confirm your registration.
+                  </p>
+                  <div className="flex gap-4">
+                    <button
+                      onClick={() => setShowRegistrationModal(false)}
+                      className="flex-1 btn-secondary"
+                      disabled={registering}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleRegister}
+                      disabled={registering}
+                      className="flex-1 btn-primary disabled:opacity-50"
+                    >
+                      {registering ? 'Processing...' : 'Confirm Registration'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

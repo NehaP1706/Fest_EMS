@@ -18,6 +18,37 @@ const EditEvent = () => {
   const [registrationLimit, setRegistrationLimit] = useState('');
   const [status, setStatus] = useState('');
 
+  // Custom registration form fields (editable when draft)
+  const [customFields, setCustomFields] = useState([]);
+
+  const handleAddCustomField = () => {
+    setCustomFields([
+      ...customFields,
+      {
+        fieldId: `field-${Date.now()}`,
+        fieldType: 'text',
+        label: '',
+        placeholder: '',
+        required: false,
+        options: [],
+      },
+    ]);
+  };
+
+  const handleRemoveCustomField = (index) => {
+    setCustomFields(customFields.filter((_, i) => i !== index));
+  };
+
+  const handleCustomFieldChange = (index, field, value) => {
+    const updated = customFields.map((f, i) => {
+      if (i === index) {
+        return { ...f, [field]: value };
+      }
+      return f;
+    });
+    setCustomFields(updated);
+  };
+
   useEffect(() => {
     fetchEvent();
   }, [id]);
@@ -34,6 +65,9 @@ const EditEvent = () => {
         new Date(eventData.registrationDeadline).toISOString().slice(0, 16) : '');
       setRegistrationLimit(eventData.registrationLimit || '');
       setStatus(eventData.status || 'draft');
+
+      // initialize custom fields (accept legacy or new shape)
+      setCustomFields(eventData.customRegistrationForm || eventData.customForm?.fields || []);
     } catch (error) {
       console.error('Error fetching event:', error);
       alert('Failed to load event');
@@ -61,12 +95,13 @@ const EditEvent = () => {
     let updateData = {};
 
     if (event.status === 'draft') {
-      // Draft events can change status
+      // Draft events can change status (include custom form edits)
       updateData = {
         description,
         registrationDeadline,
         registrationLimit: registrationLimit || null,
         status,
+        customForm: { fields: customFields },
       };
     } else if (event.status === 'published') {
       // Published events have limited edit permissions
@@ -334,17 +369,75 @@ const EditEvent = () => {
                     </option>
                   )}
                 </select>
-                {isDraft && (
-                  <p className="text-xs text-blue-600 mt-1">
-                    💡 Publish the event to make it visible to participants
-                  </p>
-                )}
-                {isPublished && (
-                  <p className="text-xs text-gray-500 mt-1">
-                    Change status to manage event lifecycle
-                  </p>
-                )}
               </div>
+
+              {/* Custom Registration Form (editable only when draft) */}
+              {isDraft && (
+                <div className="mt-6 p-4 border-t">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="font-semibold text-gray-900">Custom Registration Form</h4>
+                    <button type="button" onClick={handleAddCustomField} className="btn-secondary text-sm">
+                      Add Field
+                    </button>
+                  </div>
+
+                  {customFields.length === 0 ? (
+                    <p className="text-sm text-gray-500">No custom fields. Participants will only be asked for basic info.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {customFields.map((field, index) => (
+                        <div key={field.fieldId} className="p-3 bg-gray-50 border rounded">
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="text-sm font-medium">Field #{index + 1}</div>
+                            <button type="button" onClick={() => handleRemoveCustomField(index)} className="text-red-600">Remove</button>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">Field Type</label>
+                              <select value={field.fieldType} onChange={(e) => handleCustomFieldChange(index, 'fieldType', e.target.value)} className="input text-sm">
+                                <option value="text">Text</option>
+                                <option value="email">Email</option>
+                                <option value="number">Number</option>
+                                <option value="textarea">Text Area</option>
+                                <option value="dropdown">Dropdown</option>
+                                <option value="checkbox">Checkbox</option>
+                                <option value="radio">Radio</option>
+                                <option value="file">File Upload</option>
+                                <option value="date">Date</option>
+                              </select>
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">Label</label>
+                              <input type="text" value={field.label} onChange={(e) => handleCustomFieldChange(index, 'label', e.target.value)} className="input text-sm" />
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">Placeholder</label>
+                              <input type="text" value={field.placeholder} onChange={(e) => handleCustomFieldChange(index, 'placeholder', e.target.value)} className="input text-sm" />
+                            </div>
+
+                            <div className="flex items-center pt-4">
+                              <label className="flex items-center cursor-pointer"><input type="checkbox" checked={field.required} onChange={(e) => handleCustomFieldChange(index, 'required', e.target.checked)} className="mr-2" /> <span className="text-xs">Required</span></label>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+              {isDraft && (
+                <p className="text-xs text-blue-600 mt-1">
+                  💡 Publish the event to make it visible to participants
+                </p>
+              )}
+              {isPublished && (
+                <p className="text-xs text-gray-500 mt-1">
+                  Change status to manage event lifecycle
+                </p>
+              )}
             </div>
 
             {/* Action Buttons */}
