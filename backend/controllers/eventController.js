@@ -19,6 +19,18 @@ exports.getAllEvents = async (req, res, next) => {
 
     let query = { status: { $in: ['published', 'ongoing'] } };
 
+    if (followedOnly === 'true' && req.user) { // Added req.user check here
+      const user = await require('../models/User').findById(req.user._id);
+      
+      if (!user.followedOrganizers || user.followedOrganizers.length === 0) {
+        return res.json({ success: true, count: 0, events: [], message: '...' });
+      }
+      
+      query.organizer = { $in: user.followedOrganizers };
+    } else if (organizer) {
+      query.organizer = organizer;
+    }
+    
     // Apply filters
     if (search) {
       query.$or = [
@@ -44,12 +56,6 @@ exports.getAllEvents = async (req, res, next) => {
 
     if (organizer) {
       query.organizer = organizer;
-    }
-
-    // Filter by followed organizers if requested
-    if (followedOnly === 'true' && req.user) {
-      const user = await require('../models/User').findById(req.user._id);
-      query.organizer = { $in: user.followedOrganizers };
     }
 
     let events = await Event.find(query)

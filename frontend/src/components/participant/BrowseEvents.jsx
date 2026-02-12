@@ -10,18 +10,25 @@ const BrowseEvents = () => {
   const [trending, setTrending] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+
+  const queryParams = new URLSearchParams(window.location.search);
+
   const [filters, setFilters] = useState({
     eventType: '',
     eligibility: '',
     dateFrom: '',
     dateTo: '',
-    followedOnly: false,
+    followedOnly: queryParams.get('followedOnly') === 'true',
   });
 
   useEffect(() => {
+    const followed = queryParams.get('followedOnly') === 'true';
+    if (followed && !filters.followedOnly) {
+      setFilters(prev => ({ ...prev, followedOnly: true }));
+    }
     fetchEvents();
     fetchTrending();
-  }, [filters]);
+  }, []);
 
   const fetchEvents = async () => {
     try {

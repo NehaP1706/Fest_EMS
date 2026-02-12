@@ -13,7 +13,7 @@ const {
   getRecommendedEvents,
 } = require('../controllers/eventController');
 
-router.get('/', getAllEvents);
+router.get('/', protect, getAllEvents);
 router.get('/trending', getTrendingEvents);
 router.get('/recommended', protect, isParticipant, getRecommendedEvents);
 router.get('/:id', getEvent);
