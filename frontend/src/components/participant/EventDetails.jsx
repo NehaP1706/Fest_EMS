@@ -63,12 +63,16 @@ const EventDetails = () => {
       const response = await registrationAPI.getMyRegistrations();
       const registrations = response.data.registrations || [];
       
+      // ✅ Filter out cancelled and rejected registrations
       const existingReg = registrations.find(reg => {
         const eventId = typeof reg.event === 'object' ? reg.event._id : reg.event;
-        return eventId === id;
+        const isMatchingEvent = eventId === id;
+        const isActiveRegistration = reg.status === 'confirmed'; // ✅ Only confirmed
+        
+        return isMatchingEvent && isActiveRegistration;
       });
       
-      setMyRegistration(existingReg || null);
+      setMyRegistration(existingReg || null);  // ✅ Only sets if confirmed
 
       // If registered for merch event, check if already claimed
       if (existingReg) {
@@ -79,6 +83,9 @@ const EventDetails = () => {
           return eventId === id;
         });
         setMyMerchPurchase(existingPurchase || null);
+      } else {
+        // ✅ If no active registration, clear merch purchase too
+        setMyMerchPurchase(null);
       }
     } catch (error) {
       console.error('Error checking registration:', error);

@@ -1,6 +1,7 @@
 const Registration = require('../models/Registration');
 const Event = require('../models/Event');
-const { generateTicketId, generateQR } = require('../utils/qrGenerator');
+const QRCode = require('qrcode');
+const { generateTicketId } = require('../utils/qrGenerator');
 const { sendEmail } = require('../config/email');
 const { eventRegistrationEmail } = require('../utils/emailTemplates');
 
@@ -19,8 +20,13 @@ exports.registerForEvent = async (req, res, next) => {
       return res.status(400).json({ success: false, message: canRegister.reason });
     }
 
-    // Check if already registered
-    const existing = await Registration.findOne({ event: eventId, participant: req.user._id });
+    // Check if already registered — only block if an ACTIVE (non-cancelled) registration exists.
+    // Cancelled registrations are hard-deleted, but guard against status edge cases anyway.
+    const existing = await Registration.findOne({
+      event: eventId,
+      participant: req.user._id,
+      status: { $ne: 'cancelled' },
+    });
     if (existing) {
       return res.status(400).json({ success: false, message: 'Already registered' });
     }
@@ -33,7 +39,23 @@ exports.registerForEvent = async (req, res, next) => {
       participantId: req.user._id.toString(),
       eventName: event.name,
     };
-    const qrCode = await generateQR(qrData);
+
+    // Generate QR as both a data URL (for storing in DB) and a Buffer (for email CID attachment)
+    // Email clients like Gmail block data: URIs, so we embed the QR as a CID attachment instead
+    const qrString = JSON.stringify(qrData);
+    const qrCodeDataURL = await QRCode.toDataURL(qrString, {
+      errorCorrectionLevel: 'H',
+      type: 'image/png',
+      width: 300,
+      margin: 1,
+    });
+    const qrCodeBuffer = await QRCode.toBuffer(qrString, {
+      errorCorrectionLevel: 'H',
+      type: 'png',
+      width: 300,
+      margin: 1,
+    });
+    const qrCode = qrCodeDataURL; // stored in DB as data URL
 
     // Create registration
     const registration = await Registration.create({
@@ -50,7 +72,8 @@ exports.registerForEvent = async (req, res, next) => {
     if (event.customForm) event.customForm.isLocked = true;
     await event.save();
 
-    // Send email
+    // Send email with QR code embedded as a CID attachment
+    // This is required because Gmail and most email clients block data: URI images
     await sendEmail({
       to: req.user.email,
       subject: `Registration Confirmed - ${event.name}`,
@@ -59,9 +82,16 @@ exports.registerForEvent = async (req, res, next) => {
         eventName: event.name,
         eventDate: event.eventStartDate.toLocaleDateString(),
         ticketId,
-        qrCode,
+        qrCode: 'cid:qrcode',   // Reference the CID attachment in the HTML
         eventType: event.eventType,
       }),
+      attachments: [
+        {
+          filename: 'qrcode.png',
+          content: qrCodeBuffer,
+          cid: 'qrcode',         // Content-ID referenced above as cid:qrcode
+        },
+      ],
     });
 
     res.status(201).json({
@@ -102,10 +132,18 @@ exports.cancelRegistration = async (req, res, next) => {
       return res.status(403).json({ success: false, message: 'Not authorized' });
     }
 
-    registration.status = 'cancelled';
-    await registration.save();
+    if (registration.status === 'cancelled') {
+      return res.status(400).json({ success: false, message: 'Registration already cancelled' });
+    }
 
-    // Decrement event registration count
+    // Hard-delete the registration document so the participant can re-register later.
+    // The compound unique index { event, participant } would block re-registration if we
+    // only soft-flagged status = 'cancelled' — deleting removes that constraint.
+    // NOTE: Merchandise stock is intentionally NOT restored on cancellation
+    // (physical items are reserved and cannot be re-stocked automatically).
+    await registration.deleteOne();
+
+    // Decrement the event's live registration count
     const event = await Event.findById(registration.event);
     if (event) {
       event.currentRegistrations = Math.max(0, event.currentRegistrations - 1);

@@ -63,8 +63,11 @@ const registrationSchema = new mongoose.Schema({
   },
 });
 
-// Compound index for uniqueness
-registrationSchema.index({ event: 1, participant: 1 }, { unique: true });
+// ticketId must always be globally unique
 registrationSchema.index({ ticketId: 1 }, { unique: true });
+
+// Index for fast lookups (not unique — a participant can re-register after cancellation)
+registrationSchema.index({ event: 1, participant: 1 });
+registrationSchema.index({ participant: 1 });
 
 module.exports = mongoose.model('Registration', registrationSchema);
