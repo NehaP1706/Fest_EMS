@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { eventAPI, registrationAPI } from '../../services/api';
+import { eventAPI, registrationAPI, merchandiseAPI } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import Navbar from '../common/Navbar';
 import Loader from '../common/Loader';
 import DiscussionForum from '../shared/DiscussionForum';
-import { FiCalendar, FiClock, FiUsers, FiDollarSign, FiTag, FiX, FiCheck } from 'react-icons/fi';
+import { FiCalendar, FiClock, FiUsers, FiDollarSign, FiTag, FiX, FiCheck, FiPackage } from 'react-icons/fi';
 
 const EventDetails = () => {
   const { id } = useParams();
@@ -15,12 +15,17 @@ const EventDetails = () => {
   const [loading, setLoading] = useState(true);
   const [registering, setRegistering] = useState(false);
   const [showRegistrationModal, setShowRegistrationModal] = useState(false);
+  const [showMerchModal, setShowMerchModal] = useState(false);
   const [formData, setFormData] = useState({});
   const [myRegistration, setMyRegistration] = useState(null);
+  const [myMerchPurchase, setMyMerchPurchase] = useState(null);
   const [checkingRegistration, setCheckingRegistration] = useState(true);
-
-  // Accept either legacy `customRegistrationForm` or new `customForm.fields`
-  const formFields = event ? (event.customRegistrationForm || event.customForm?.fields || []) : [];
+  
+  // Merch claim form
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [selectedVariant, setSelectedVariant] = useState('');
+  const [merchQuantity, setMerchQuantity] = useState(1);
+  const [claiming, setClaiming] = useState(false);
 
   useEffect(() => {
     fetchEvent();
@@ -32,14 +37,18 @@ const EventDetails = () => {
       const response = await eventAPI.getById(id);
       setEvent(response.data.event);
       
-      // Initialize form data with empty values (accept legacy or new shape)
-      const formFields = response.data.event.customRegistrationForm || response.data.event.customForm?.fields || [];
-      if (formFields && formFields.length > 0) {
+      // Initialize form data with empty values
+      if (response.data.event.customForm?.fields) {
         const initialData = {};
-        formFields.forEach(field => {
+        response.data.event.customForm.fields.forEach(field => {
           initialData[field.fieldId] = field.fieldType === 'checkbox' ? [] : '';
         });
         setFormData(initialData);
+      }
+
+      // If merchandise event, set first item as default
+      if (response.data.event.eventType === 'merchandise' && response.data.event.merchandiseItems?.length > 0) {
+        setSelectedItem(response.data.event.merchandiseItems[0]);
       }
     } catch (error) {
       console.error('Error fetching event:', error);
@@ -54,35 +63,41 @@ const EventDetails = () => {
       const response = await registrationAPI.getMyRegistrations();
       const registrations = response.data.registrations || [];
       
-      // Check if already registered for this event
-      // Handle both populated and non-populated event field
       const existingReg = registrations.find(reg => {
         const eventId = typeof reg.event === 'object' ? reg.event._id : reg.event;
-        return eventId === id && reg.status !== 'cancelled';
+        return eventId === id;
       });
       
       setMyRegistration(existingReg || null);
+
+      // If registered for merch event, check if already claimed
+      if (existingReg) {
+        const merchResponse = await merchandiseAPI.getMyPurchases();
+        const purchases = merchResponse.data.purchases || [];
+        const existingPurchase = purchases.find(p => {
+          const eventId = typeof p.event === 'object' ? p.event._id : p.event;
+          return eventId === id;
+        });
+        setMyMerchPurchase(existingPurchase || null);
+      }
     } catch (error) {
       console.error('Error checking registration:', error);
       setMyRegistration(null);
+      setMyMerchPurchase(null);
     } finally {
       setCheckingRegistration(false);
     }
   };
 
   const handleRegisterClick = () => {
-    // Check if already registered
     if (myRegistration) {
       alert('You are already registered for this event!');
       return;
     }
 
-    // Check if event has custom form fields
-    if (formFields && formFields.length > 0) {
-      // Show modal with form
+    if (event.customForm?.fields && event.customForm.fields.length > 0) {
       setShowRegistrationModal(true);
     } else {
-      // No form, register directly
       handleRegister();
     }
   };
@@ -91,8 +106,7 @@ const EventDetails = () => {
     try {
       setRegistering(true);
       
-      // Validate required fields if custom form exists
-      if (formFields && formFields.length > 0) {
+      if (event.customForm?.fields && event.customForm.fields.length > 0) {
         const errors = validateForm();
         if (errors.length > 0) {
           alert('Please fill in all required fields:\n' + errors.join('\n'));
@@ -105,10 +119,8 @@ const EventDetails = () => {
       alert('Registration successful! Check your email for the ticket.');
       setShowRegistrationModal(false);
       
-      // Immediately update registration status
       setMyRegistration(response.data.registration);
       
-      // Refresh data
       await Promise.all([
         checkExistingRegistration(),
         fetchEvent()
@@ -121,10 +133,7 @@ const EventDetails = () => {
   };
 
   const handleCancelRegistration = async () => {
-    if (!myRegistration) {
-      alert('No registration found to cancel');
-      return;
-    }
+    if (!myRegistration) return;
 
     if (!confirm('Are you sure you want to cancel your registration for this event? This action cannot be undone.')) {
       return;
@@ -134,35 +143,65 @@ const EventDetails = () => {
       setRegistering(true);
       await registrationAPI.cancel(myRegistration._id);
       
-      // Immediately clear registration state BEFORE alert and re-fetch
-      // so the UI updates correctly even if re-fetch returns stale data
       setMyRegistration(null);
-      
-      // Refresh event data (counts etc.) — checkExistingRegistration is
-      // intentionally omitted here because the status filter fix handles it,
-      // but we still call it to stay in sync
-      await fetchEvent();
-      await checkExistingRegistration();
-
-      // Show success message AFTER state is updated
       alert('Registration cancelled successfully!');
+      
+      await Promise.all([
+        checkExistingRegistration(),
+        fetchEvent()
+      ]);
     } catch (error) {
       console.error('Error cancelling registration:', error);
-      
-      // Re-check real status from server on error
-      await checkExistingRegistration();
       alert(error.response?.data?.message || 'Failed to cancel registration');
+      await checkExistingRegistration();
     } finally {
       setRegistering(false);
+    }
+  };
+
+  const handleClaimMerch = () => {
+    setShowMerchModal(true);
+  };
+
+  const handleSubmitMerchClaim = async () => {
+    if (!selectedVariant) {
+      alert('Please select a variant');
+      return;
+    }
+
+    if (merchQuantity < 1) {
+      alert('Quantity must be at least 1');
+      return;
+    }
+
+    try {
+      setClaiming(true);
+      
+      const response = await merchandiseAPI.claimMerchandise(myRegistration._id, {
+        itemId: selectedItem.itemId,
+        variant: selectedVariant,
+        quantity: merchQuantity,
+      });
+
+      alert('Merchandise claimed successfully! Check your email for the ticket.');
+      setShowMerchModal(false);
+      
+      setMyMerchPurchase(response.data.purchase);
+      await Promise.all([
+        checkExistingRegistration(),
+        fetchEvent()
+      ]);
+    } catch (error) {
+      alert(error.response?.data?.message || 'Failed to claim merchandise');
+    } finally {
+      setClaiming(false);
     }
   };
 
   const validateForm = () => {
     const errors = [];
     
-    // validate against whichever form definition exists
-    const toValidate = formFields || [];
-    toValidate.forEach(field => {
+    event.customForm.fields.forEach(field => {
       if (field.required) {
         const value = formData[field.fieldId];
         
@@ -175,7 +214,7 @@ const EventDetails = () => {
     return errors;
   };
 
-  const handleFormFieldChange = (fieldId, value, fieldType) => {
+  const handleFormFieldChange = (fieldId, value) => {
     setFormData(prev => ({
       ...prev,
       [fieldId]: value
@@ -193,7 +232,7 @@ const EventDetails = () => {
           <input
             type={field.fieldType}
             value={value || ''}
-            onChange={(e) => handleFormFieldChange(field.fieldId, e.target.value, field.fieldType)}
+            onChange={(e) => handleFormFieldChange(field.fieldId, e.target.value)}
             className="input"
             placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
             required={field.required}
@@ -204,7 +243,7 @@ const EventDetails = () => {
         return (
           <textarea
             value={value || ''}
-            onChange={(e) => handleFormFieldChange(field.fieldId, e.target.value, field.fieldType)}
+            onChange={(e) => handleFormFieldChange(field.fieldId, e.target.value)}
             className="input"
             rows={4}
             placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
@@ -216,7 +255,7 @@ const EventDetails = () => {
         return (
           <select
             value={value || ''}
-            onChange={(e) => handleFormFieldChange(field.fieldId, e.target.value, field.fieldType)}
+            onChange={(e) => handleFormFieldChange(field.fieldId, e.target.value)}
             className="input"
             required={field.required}
           >
@@ -239,7 +278,7 @@ const EventDetails = () => {
                   name={field.fieldId}
                   value={option}
                   checked={value === option}
-                  onChange={(e) => handleFormFieldChange(field.fieldId, e.target.value, field.fieldType)}
+                  onChange={(e) => handleFormFieldChange(field.fieldId, e.target.value)}
                   className="mr-2"
                   required={field.required}
                 />
@@ -263,7 +302,7 @@ const EventDetails = () => {
                     const newValues = e.target.checked
                       ? [...currentValues, option]
                       : currentValues.filter(v => v !== option);
-                    handleFormFieldChange(field.fieldId, newValues, field.fieldType);
+                    handleFormFieldChange(field.fieldId, newValues);
                   }}
                   className="mr-2"
                 />
@@ -278,7 +317,7 @@ const EventDetails = () => {
           <input
             type="date"
             value={value || ''}
-            onChange={(e) => handleFormFieldChange(field.fieldId, e.target.value, field.fieldType)}
+            onChange={(e) => handleFormFieldChange(field.fieldId, e.target.value)}
             className="input"
             required={field.required}
           />
@@ -289,7 +328,7 @@ const EventDetails = () => {
           <input
             type="text"
             value={value || ''}
-            onChange={(e) => handleFormFieldChange(field.fieldId, e.target.value, field.fieldType)}
+            onChange={(e) => handleFormFieldChange(field.fieldId, e.target.value)}
             className="input"
             placeholder={field.placeholder}
             required={field.required}
@@ -309,7 +348,7 @@ const EventDetails = () => {
 
   const canRegister = () => {
     if (!event) return false;
-    if (myRegistration) return false; // Already registered
+    if (myRegistration) return false;
     
     const now = new Date();
     const deadline = new Date(event.registrationDeadline);
@@ -318,6 +357,18 @@ const EventDetails = () => {
     if (event.registrationLimit && event.currentRegistrations >= event.registrationLimit) {
       return false;
     }
+    
+    return true;
+  };
+
+  const canClaimMerch = () => {
+    if (!event || event.eventType !== 'merchandise') return false;
+    if (!myRegistration) return false;
+    if (myMerchPurchase) return false;
+    
+    const now = new Date();
+    const eventEnd = new Date(event.eventEndDate);
+    if (now > eventEnd) return false;
     
     return true;
   };
@@ -435,6 +486,41 @@ const EventDetails = () => {
                   </div>
                 </div>
               </div>
+
+              {/* Merchandise Claim Section */}
+              {event.eventType === 'merchandise' && (
+                <div>
+                  {myMerchPurchase ? (
+                    <div className="bg-purple-50 border-2 border-purple-200 text-purple-800 px-4 py-4 rounded-lg">
+                      <div className="flex items-center">
+                        <FiPackage className="mr-3 flex-shrink-0" size={24} />
+                        <div>
+                          <p className="font-semibold">Merchandise Claimed!</p>
+                          <p className="text-sm mt-1">
+                            {myMerchPurchase.merchandiseItem?.itemName} - {myMerchPurchase.variant?.name} (x{myMerchPurchase.quantity})
+                          </p>
+                          <p className="text-sm">
+                            Ticket ID: <span className="font-mono">{myMerchPurchase.ticketId}</span>
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : canClaimMerch() ? (
+                    <button
+                      onClick={handleClaimMerch}
+                      disabled={claiming}
+                      className="w-full btn-primary py-3 text-lg disabled:opacity-50 flex items-center justify-center"
+                    >
+                      <FiPackage className="mr-2" />
+                      {claiming ? 'Claiming...' : 'Claim Merchandise'}
+                    </button>
+                  ) : (
+                    <div className="bg-gray-50 border border-gray-200 text-gray-700 px-4 py-3 rounded-lg">
+                      Event has ended or merchandise claim period has passed
+                    </div>
+                  )}
+                </div>
+              )}
               
               <button
                 onClick={handleCancelRegistration}
@@ -484,7 +570,6 @@ const EventDetails = () => {
             </div>
 
             <div className="p-6">
-              {/* Event Summary */}
               <div className="bg-primary-50 border border-primary-200 rounded-lg p-4 mb-6">
                 <h3 className="font-semibold text-primary-900 mb-2">{event.name}</h3>
                 <div className="text-sm text-primary-700 space-y-1">
@@ -495,29 +580,24 @@ const EventDetails = () => {
                 </div>
               </div>
 
-              {/* Custom Form Fields */}
-              {formFields && formFields.length > 0 ? (
+              {event.customForm?.fields && event.customForm.fields.length > 0 ? (
                 <form onSubmit={(e) => { e.preventDefault(); handleRegister(); }} className="space-y-6">
                   <div className="space-y-4">
                     <h3 className="font-semibold text-gray-900 text-lg mb-4">
                       Please fill in the following information:
                     </h3>
                     
-                    {formFields.map((field) => (
+                    {event.customForm.fields.map((field) => (
                       <div key={field.fieldId}>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           {field.label}
                           {field.required && <span className="text-red-500 ml-1">*</span>}
                         </label>
                         {renderFormField(field)}
-                        {field.placeholder && !['text', 'email', 'textarea'].includes(field.fieldType) && (
-                          <p className="text-xs text-gray-500 mt-1">{field.placeholder}</p>
-                        )}
                       </div>
                     ))}
                   </div>
 
-                  {/* Action Buttons */}
                   <div className="flex gap-4 pt-6 border-t">
                     <button
                       type="button"
@@ -559,6 +639,132 @@ const EventDetails = () => {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Merchandise Claim Modal */}
+      {showMerchModal && selectedItem && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-gray-900">Claim Merchandise</h2>
+              <button
+                onClick={() => setShowMerchModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+                disabled={claiming}
+              >
+                <FiX size={24} />
+              </button>
+            </div>
+
+            <div className="p-6">
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-6">
+                <h3 className="font-semibold text-purple-900 mb-2">{selectedItem.itemName}</h3>
+                <p className="text-sm text-purple-700">{selectedItem.description}</p>
+              </div>
+
+              <form onSubmit={(e) => { e.preventDefault(); handleSubmitMerchClaim(); }} className="space-y-6">
+                {/* Item Selection (if multiple items) */}
+                {event.merchandiseItems && event.merchandiseItems.length > 1 && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Select Item <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={selectedItem.itemId}
+                      onChange={(e) => {
+                        const item = event.merchandiseItems.find(i => i.itemId === e.target.value);
+                        setSelectedItem(item);
+                        setSelectedVariant('');
+                      }}
+                      className="input"
+                      required
+                    >
+                      {event.merchandiseItems.map((item) => (
+                        <option key={item.itemId} value={item.itemId}>
+                          {item.itemName}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Variant Selection */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Select Variant <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={selectedVariant}
+                    onChange={(e) => setSelectedVariant(e.target.value)}
+                    className="input"
+                    required
+                  >
+                    <option value="">Choose size/color...</option>
+                    {selectedItem.variants && selectedItem.variants.map((variant) => (
+                      <option 
+                        key={variant.variantId} 
+                        value={variant.variantId}
+                        disabled={variant.stock === 0}
+                      >
+                        {variant.name} - ₹{variant.price} 
+                        {variant.stock === 0 ? ' (Out of Stock)' : ` (${variant.stock} available)`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Quantity */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Quantity <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max={selectedItem.purchaseLimit || 10}
+                    value={merchQuantity}
+                    onChange={(e) => setMerchQuantity(parseInt(e.target.value))}
+                    className="input"
+                    required
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Maximum {selectedItem.purchaseLimit || 10} per participant
+                  </p>
+                </div>
+
+                {/* Total */}
+                {selectedVariant && (
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium text-gray-900">Total Amount:</span>
+                      <span className="text-2xl font-bold text-primary-600">
+                        ₹{(selectedItem.variants.find(v => v.variantId === selectedVariant)?.price || 0) * merchQuantity}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex gap-4 pt-6 border-t">
+                  <button
+                    type="button"
+                    onClick={() => setShowMerchModal(false)}
+                    className="flex-1 btn-secondary"
+                    disabled={claiming}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={claiming || !selectedVariant}
+                    className="flex-1 btn-primary disabled:opacity-50"
+                  >
+                    {claiming ? 'Claiming...' : 'Confirm Claim'}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </div>

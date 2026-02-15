@@ -285,4 +285,113 @@ exports.newDiscussionEmail = (data) => {
   return baseTemplate(content);
 };
 
+exports.merchandiseClaimedEmail = ({
+  participantName,
+  eventName,
+  itemName,
+  variant,
+  quantity,
+  ticketId,
+  qrCode,
+  issuedByOrganizer = false,
+}) => {
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body {
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          line-height: 1.6;
+          color: #333;
+          max-width: 600px;
+          margin: 0 auto;
+          padding: 20px;
+        }
+        .header {
+          background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+          padding: 30px;
+          text-align: center;
+          border-radius: 10px 10px 0 0;
+          color: white;
+        }
+        .content {
+          background: #ffffff;
+          padding: 30px;
+          border: 1px solid #e5e7eb;
+        }
+        .details-box {
+          background: #f3f4f6;
+          padding: 20px;
+          border-radius: 8px;
+          margin: 20px 0;
+        }
+        .ticket-box {
+          background: #ede9fe;
+          border: 2px dashed #8b5cf6;
+          padding: 20px;
+          border-radius: 8px;
+          text-align: center;
+        }
+        .ticket-id {
+          font-family: 'Courier New', monospace;
+          font-size: 20px;
+          font-weight: bold;
+          color: #7c3aed;
+          letter-spacing: 2px;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>🎉 Merchandise Claimed!</h1>
+      </div>
+      
+      <div class="content">
+        <p>Dear <strong>${participantName}</strong>,</p>
+        
+        <p>Your merchandise claim has been confirmed for <strong>${eventName}</strong>.</p>
+        
+        <div class="details-box">
+          <h3>📦 Order Details</h3>
+          <p><strong>Item:</strong> ${itemName}</p>
+          <p><strong>Variant:</strong> ${variant}</p>
+          <p><strong>Quantity:</strong> ${quantity}</p>
+        </div>
+        
+        ${issuedByOrganizer ? `
+          <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0;">
+            <p><strong>ℹ️ Note:</strong> This merchandise was issued to you by the event organizer.</p>
+          </div>
+        ` : ''}
+        
+        <div class="ticket-box">
+          <p>Your Merchandise Ticket</p>
+          <div class="ticket-id">${ticketId}</div>
+        </div>
+        
+        <div style="text-align: center; margin: 20px 0;">
+          <p><strong>Present this QR Code:</strong></p>
+          <img src="${qrCode}" alt="QR Code" style="max-width: 250px; border: 4px solid white; border-radius: 8px;" />
+        </div>
+        
+        <div style="background: #f0fdf4; border: 1px solid #86efac; padding: 20px; border-radius: 8px;">
+          <h4 style="color: #16a34a;">📋 Collection Instructions</h4>
+          <ul>
+            <li>Present this QR code at the event venue</li>
+            <li>Have your ticket ID ready</li>
+            <li>Bring a valid ID for verification</li>
+          </ul>
+        </div>
+        
+        <p style="margin-top: 30px;">
+          Best regards,<br>
+          <strong>Felicity EMS Team</strong>
+        </p>
+      </div>
+    </body>
+    </html>
+  `;
+};
+
 module.exports = exports;

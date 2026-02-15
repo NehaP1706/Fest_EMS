@@ -125,16 +125,18 @@ export const adminAPI = {
   rejectReset: (id, data) => api.post(`/admin/password-resets/${id}/reject`, data),
 };
 
-// Merchandise APIs
 export const merchandiseAPI = {
-  purchase: (eventId, formData) => api.post(`/merchandise/${eventId}/purchase`, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  }),
+  // Existing endpoints
+  purchase: (eventId, formData) => api.post(`/merchandise/${eventId}/purchase`, formData),
   getMyPurchases: () => api.get('/merchandise/my-purchases'),
   getPendingApprovals: () => api.get('/merchandise/pending-approvals'),
-  approve: (purchaseId) => api.post(`/merchandise/${purchaseId}/approve`),
-  reject: (purchaseId, data) => api.post(`/merchandise/${purchaseId}/reject`, data),
-  getEventPurchases: (eventId) => api.get(`/merchandise/event/${eventId}`), 
+  approvePurchase: (purchaseId) => api.post(`/merchandise/${purchaseId}/approve`),
+  rejectPurchase: (purchaseId, data) => api.post(`/merchandise/${purchaseId}/reject`, data),
+  
+  // NEW: Claim and Issue endpoints
+  claimMerchandise: (registrationId, data) => api.post(`/merchandise/${registrationId}/claim`, data),
+  issueMerchandise: (eventId, data) => api.post(`/merchandise/${eventId}/issue`, data),
+  getEventPurchases: (eventId) => api.get(`/merchandise/event/${eventId}`),
 };
 
 // Discussion APIs

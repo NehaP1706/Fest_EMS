@@ -23,6 +23,7 @@ import QRScanner from './components/organizer/QRScanner';
 import MerchandiseApproval from './components/organizer/MerchandiseApproval';
 import OrganizerProfile from './components/organizer/Profile';
 import EditEvent from './components/organizer/EditEvent';
+import IssueMerchandise from './components/organizer/IssueMerchandise';
 
 // Admin pages
 import AdminDashboard from './components/admin/Dashboard';
@@ -79,6 +80,11 @@ function App() {
           <Route path="/organizer/dashboard" element={
             <ProtectedRoute allowedRoles={['organizer']}>
               <OrganizerDashboard />
+            </ProtectedRoute>
+          } />
+          <Route path="/organizer/events/:id/issue-merchandise" element={
+            <ProtectedRoute allowedRoles={['organizer']}>
+              <IssueMerchandise />
             </ProtectedRoute>
           } />
           <Route path="/organizer/create-event" element={

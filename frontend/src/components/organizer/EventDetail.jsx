@@ -11,6 +11,7 @@ const OrganizerEventDetail = () => {
   const navigate = useNavigate();
   const [event, setEvent] = useState(null);
   const [participants, setParticipants] = useState([]);
+  const [registrations, setRegistrations] = useState([]);
   const [attendance, setAttendance] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
@@ -39,22 +40,38 @@ const OrganizerEventDetail = () => {
 
       // Fetch participants based on event type
       if (eventRes.data.event.eventType === 'merchandise') {
-        // Fetch merchandise purchases for this event
+        // For merchandise events, fetch BOTH purchases AND registrations
         try {
-          const purchasesRes = await merchandiseAPI.getEventPurchases(id);
-          setParticipants(purchasesRes.data.purchases || []);
+          const [purchasesRes, regsRes] = await Promise.all([
+            merchandiseAPI.getEventPurchases(id),
+            registrationAPI.getEventRegistrations(id)
+          ]);
+          
+          const purchases = purchasesRes.data.purchases || [];
+          const registrations = regsRes.data.registrations || [];
+          
+          // Use purchases for main display (Participants tab, Analytics)
+          setParticipants(purchases);
+          
+          // Store registrations separately for Form tab
+          // Add this state at the top: const [registrations, setRegistrations] = useState([]);
+          setRegistrations(registrations);
         } catch (err) {
-          console.error('Error fetching purchases:', err);
+          console.error('Error fetching data:', err);
           setParticipants([]);
+          setRegistrations([]);
         }
       } else {
-        // Fetch registrations for this event
+        // Fetch registrations for normal events
         try {
           const regsRes = await registrationAPI.getEventRegistrations(id);
-          setParticipants(regsRes.data.registrations || []);
+          const regs = regsRes.data.registrations || [];
+          setParticipants(regs);
+          setRegistrations(regs);  // Same for normal events
         } catch (err) {
           console.error('Error fetching registrations:', err);
           setParticipants([]);
+          setRegistrations([]);
         }
       }
     } catch (error) {
@@ -122,26 +139,26 @@ const OrganizerEventDetail = () => {
   };
 
   const getPaymentStatusData = () => {
-    if (event?.eventType === 'merchandise') {
-      const approved = participants.filter(p => p.status === 'approved').length;
-      const pending = participants.filter(p => p.status === 'pending').length;
-      const rejected = participants.filter(p => p.status === 'rejected').length;
+  if (event?.eventType === 'merchandise') {
+    const approved = participants.filter(p => p.paymentStatus === 'approved').length;
+    const pending = participants.filter(p => p.paymentStatus === 'pending').length;
+    const rejected = participants.filter(p => p.paymentStatus === 'rejected').length;
 
-      return [
-        { name: 'Approved', value: approved, color: '#10b981' },
-        { name: 'Pending', value: pending, color: '#f59e0b' },
-        { name: 'Rejected', value: rejected, color: '#ef4444' },
-      ];
-    } else {
-      const paid = participants.filter(p => p.paymentStatus === 'completed').length;
-      const pending = participants.filter(p => p.paymentStatus === 'pending').length;
+    return [
+      { name: 'Approved', value: approved, color: '#10b981' },
+      { name: 'Pending', value: pending, color: '#f59e0b' },
+      { name: 'Rejected', value: rejected, color: '#ef4444' },
+    ].filter(item => item.value > 0);  
+  } else {
+    const paid = participants.filter(p => p.paymentStatus === 'completed').length;
+    const pending = participants.filter(p => p.paymentStatus === 'pending').length;
 
-      return [
-        { name: 'Paid', value: paid, color: '#10b981' },
-        { name: 'Pending', value: pending, color: '#f59e0b' },
-      ];
-    }
-  };
+    return [
+      { name: 'Paid', value: paid, color: '#10b981' },
+      { name: 'Pending', value: pending, color: '#f59e0b' },
+    ].filter(item => item.value > 0);  
+  }
+};
 
   const filteredParticipants = participants.filter(p => {
     const participant = p.participant || {};
@@ -248,13 +265,18 @@ const OrganizerEventDetail = () => {
               <div className="flex items-center">
                 <FiUsers className="text-primary-600 mr-3" size={24} />
                 <div>
-                  <p className="text-sm text-gray-600">Registrations</p>
+                  <p className="text-sm text-gray-600">
+                    {event.eventType === 'merchandise' ? 'Registrations' : 'Registrations'}
+                  </p>
                   <p className="font-semibold">
-                    {event.currentRegistrations || 0}
+                    {event.eventType === 'merchandise' 
+                      ? participants.length  
+                      : (event.currentRegistrations || 0)
+                    }
                     {event.registrationLimit && ` / ${event.registrationLimit}`}
                   </p>
                 </div>
-              </div>
+              </div> 
             </div>
 
             <div className="card bg-white">
@@ -383,52 +405,70 @@ const OrganizerEventDetail = () => {
           )}
 
           {/* Form Responses Tab */}
+          {/* Form Tab */}
           {activeTab === 'form' && (
             <div className="p-6">
               <h3 className="font-semibold text-gray-900 mb-4">
                 Registration Form Responses ({participants.filter(p => p.formResponses && Object.keys(p.formResponses).length > 0).length} / {participants.length} with responses)
               </h3>
-              {(!formFields || formFields.length === 0) ? (
-                <div className="text-center py-12 text-gray-500">
-                  <p className="text-gray-500">No custom registration form fields were added for this event.</p>
-                  <p className="text-sm text-gray-400 mt-1">Only basic participant info is collected.</p>
-                </div>
-              ) : participants.length === 0 ? (
-                <div className="text-center py-12 text-gray-500">
-                  <p>No registrations yet.</p>
+
+              {!event.customForm?.fields || event.customForm.fields.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-gray-600">No custom registration form for this event</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200 text-sm">
+                  <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Participant</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ticket ID</th>
-                          {formFields.map((field) => (
-                          <th key={field.fieldId} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                            {field.label}{field.required ? ' *' : ''}
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Participant
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Ticket ID
+                        </th>
+                        {event.customForm.fields.map((field) => (
+                          <th 
+                            key={field.fieldId} 
+                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                          >
+                            {field.label} {field.required && <span className="text-red-500">*</span>}
                           </th>
                         ))}
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {participants.map((reg) => (
-                        <tr key={reg._id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 whitespace-nowrap font-medium text-gray-900">
-                            {reg.participant?.firstName} {reg.participant?.lastName}
-                            <div className="text-xs text-gray-500">{reg.participant?.email}</div>
+                      {registrations.map((registration) => (
+                        <tr key={registration._id}>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {registration.participant?.firstName} {registration.participant?.lastName}
+                            <div className="text-xs text-gray-500">{registration.participant?.email}</div>
                           </td>
-                          <td className="px-4 py-3 whitespace-nowrap font-mono text-xs text-gray-600">
-                            {reg.ticketId || '—'}
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 font-mono">
+                            {registration.ticketId}
                           </td>
                           {formFields.map((field) => {
-                            const response = reg.formResponses?.[field.fieldId];
-                            const displayValue = Array.isArray(response)
-                              ? response.join(', ')
-                              : response || <span className="text-gray-400">—</span>;
+                            const response = registration.formResponses?.[field.fieldId];  {/* ✅ Now has data */}
                             return (
-                              <td key={field.fieldId} className="px-4 py-3 text-gray-700">
-                                {displayValue}
+                              <td key={field.fieldId} className="px-6 py-4 text-sm text-gray-900">
+                                {response ? (
+                                  Array.isArray(response) ? (
+                                    <div className="flex flex-wrap gap-1">
+                                      {response.map((item, idx) => (
+                                        <span 
+                                          key={idx}
+                                          className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded"
+                                        >
+                                          {item}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <span className="whitespace-pre-wrap">{response}</span>
+                                  )
+                                ) : (
+                                  <span className="text-gray-400">—</span>
+                                )}
                               </td>
                             );
                           })}
