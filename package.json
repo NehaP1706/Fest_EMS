@@ -1,0 +1,9 @@
+{
+  "name": "felicity-ems-root",
+  "version": "1.0.0",
+  "scripts": {
+    "install-all": "npm install && npm install --prefix frontend && npm install --prefix backend",
+    "build": "npm run build --prefix frontend && cp -r frontend/dist backend/",
+    "start": "npm start --prefix backend"
+  }
+}
