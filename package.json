@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "scripts": {
     "install-all": "npm install && npm install --prefix frontend && npm install --prefix backend",
-    "build": "cd frontend && npm install && npx vite build && cd .. && cp -r frontend/dist backend/",
+    "build": "cd frontend && npm install --include=dev && npx vite build && cd .. && cp -r frontend/dist backend/",
     "start": "npm start --prefix backend"
-    }
+  }
 }
