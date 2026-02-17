@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { discussionAPI } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
+import { useSocket } from '../../contexts/SocketContext';
 import {
   FiSend, FiTrash2, FiMessageSquare, FiX, FiBell, FiChevronDown,
   FiChevronUp, FiSpeaker, FiMapPin,
 } from 'react-icons/fi';
 
-const API_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
 const EMOJIS = ['👍', '❤️', '😂', '😮', '👏'];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -27,7 +27,7 @@ const summarizeReactions = (reactions = []) => {
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-const ReactionBar = ({ reactions, userReaction, onReact, compact }) => {
+const ReactionBar = ({ reactions, userReaction, onReact }) => {
   const [open, setOpen] = useState(false);
   const summary = typeof reactions === 'object' && !Array.isArray(reactions)
     ? reactions
@@ -99,7 +99,7 @@ const MessageBubble = ({
 
   const reactionSummary = (() => {
     if (typeof message.reactions === 'object' && !Array.isArray(message.reactions)) {
-      return message.reactions; // already summarized from socket event
+      return message.reactions;
     }
     return summarizeReactions(message.reactions || []);
   })();
@@ -217,19 +217,16 @@ const MessageBubble = ({
             >
               {submittingReply ? '…' : <FiSend size={14} />}
             </button>
-            <button onClick={() => setReplying(false)} className="px-2 py-1.5 text-gray-400 hover:text-gray-600">
-              <FiX size={14} />
-            </button>
           </div>
         )}
       </div>
 
       {/* Replies */}
-      {message.replies?.length > 0 && (
-        <div>
+      {message.replies && message.replies.length > 0 && (
+        <div className="mt-2">
           <button
-            onClick={() => setShowReplies(v => !v)}
-            className="ml-6 mt-1 text-xs text-blue-600 hover:underline flex items-center gap-1"
+            onClick={() => setShowReplies(s => !s)}
+            className="text-xs text-gray-500 hover:text-blue-600 flex items-center gap-1 ml-6 mb-1"
           >
             {showReplies ? <FiChevronUp size={12} /> : <FiChevronDown size={12} />}
             {showReplies ? 'Hide' : 'Show'} {message.replies.length} {message.replies.length === 1 ? 'reply' : 'replies'}
@@ -256,115 +253,184 @@ const MessageBubble = ({
 // ── Main Component ────────────────────────────────────────────────────────────
 
 const DiscussionForum = ({ eventId }) => {
-  const { user, role } = useAuth();
-  const currentUserId = user?._id;
-  const isOrganizer = role === 'organizer';
-
+  const { user, organizer } = useAuth();
+  const { socket, connected } = useSocket();
+  
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [newMessage, setNewMessage] = useState('');
   const [isAnnouncement, setIsAnnouncement] = useState(false);
   const [posting, setPosting] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [toasts, setToasts] = useState([]); // notification toasts
+  const [toasts, setToasts] = useState([]);
 
-  const socketRef = useRef(null);
-  const bottomRef = useRef(null);
   const containerRef = useRef(null);
+  const bottomRef = useRef(null);
 
-  // ── Toast helpers ──────────────────────────────────────────────────────────
+  const currentUserId = user?._id || organizer?._id;
+  const isOrganizer = !!organizer;
+
+  // ── Toast notifications ────────────────────────────────────────────────────
   const addToast = useCallback((text, type = 'info') => {
     const id = Date.now();
-    setToasts(t => [...t, { id, text, type }]);
-    setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 4000);
+    setToasts(prev => [...prev, { id, text, type }]);
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 5000);
   }, []);
 
-  // ── Load initial messages ──────────────────────────────────────────────────
+  // ── Scroll to bottom ───────────────────────────────────────────────────────
+  const scrollToBottom = useCallback(() => {
+    if (bottomRef.current) {
+      bottomRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, []);
+
+  // ── Fetch messages ─────────────────────────────────────────────────────────
   const fetchMessages = useCallback(async () => {
     try {
-      const res = await discussionAPI.getMessages(eventId);
-      setMessages(res.data.messages || []);
+      setLoading(true);
+      const response = await discussionAPI.getMessages(eventId);
+      setMessages(response.data.messages || []);
     } catch (err) {
-      console.error('Failed to load discussion:', err);
+      console.error('Error fetching messages:', err);
+      addToast('Failed to load messages', 'error');
     } finally {
       setLoading(false);
     }
-  }, [eventId]);
+  }, [eventId, addToast]);
 
-  // ── Socket.io ──────────────────────────────────────────────────────────────
+  // ── Initial fetch ──────────────────────────────────────────────────────────
   useEffect(() => {
     fetchMessages();
+  }, [fetchMessages]);
 
-    let socket = null;
-
-    // Wrap in try/catch — if socket.io-client is not installed the forum still works
-    try {
-      const { io } = require('socket.io-client');
-      socket = io(API_URL, { transports: ['websocket', 'polling'] });
-      socketRef.current = socket;
-      socket.emit('join-event', eventId);
-
-      socket.on('new-message', (msg) => {
-        setMessages(prev => {
-          if (prev.find(m => m._id === msg._id)) return prev;
-          return [...prev, { ...msg, replies: msg.replies || [], replyCount: 0 }];
-        });
-        setUnreadCount(c => c + 1);
-        setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
-      });
-
-      socket.on('new-reply', ({ parentId, reply }) => {
-        setMessages(prev => prev.map(m => {
-          if (m._id !== parentId) return m;
-          const exists = (m.replies || []).find(r => r._id === reply._id);
-          if (exists) return m;
-          return { ...m, replies: [...(m.replies || []), reply], replyCount: (m.replyCount || 0) + 1 };
-        }));
-      });
-
-      socket.on('message-deleted', ({ messageId }) => {
-        setMessages(prev => {
-          const filtered = prev.filter(m => m._id !== messageId);
-          return filtered.map(m => ({
-            ...m,
-            replies: (m.replies || []).filter(r => r._id !== messageId),
-            replyCount: Math.max(0, (m.replyCount || 0) - ((m.replies || []).some(r => r._id === messageId) ? 1 : 0)),
-          }));
-        });
-      });
-
-      socket.on('message-pinned', ({ messageId, isPinned }) => {
-        setMessages(prev => {
-          const updated = prev.map(m => m._id === messageId ? { ...m, isPinned } : m);
-          return [...updated].sort((a, b) => {
-            if (a.isPinned && !b.isPinned) return -1;
-            if (!a.isPinned && b.isPinned) return 1;
-            if (a.isAnnouncement && !b.isAnnouncement) return -1;
-            if (!a.isAnnouncement && b.isAnnouncement) return 1;
-            return new Date(a.createdAt) - new Date(b.createdAt);
-          });
-        });
-      });
-
-      socket.on('reaction-updated', ({ messageId, reactions }) => {
-        setMessages(prev => prev.map(m => m._id === messageId ? { ...m, reactions } : m));
-      });
-
-      socket.on('announcement', ({ content, authorName }) => {
-        addToast(`📢 ${authorName}: ${content.slice(0, 80)}${content.length > 80 ? '…' : ''}`, 'announcement');
-      });
-
-    } catch (e) {
-      console.warn('Real-time disabled (socket.io-client unavailable):', e.message);
-    }
-
-    return () => {
-      if (socket) {
-        socket.emit('leave-event', eventId);
-        socket.disconnect();
+  // ── Fetch unread count ─────────────────────────────────────────────────────
+  useEffect(() => {
+    const fetchUnread = async () => {
+      try {
+        const response = await discussionAPI.getUnreadCount(eventId);
+        setUnreadCount(response.data.count || 0);
+      } catch (err) {
+        console.error('Error fetching unread count:', err);
       }
     };
-  }, [eventId, fetchMessages, addToast]);
+    fetchUnread();
+  }, [eventId]);
+
+  // ── Real-time Socket.IO listeners ──────────────────────────────────────────
+  useEffect(() => {
+    if (!socket || !eventId) {
+      console.log('⏸️ Socket not ready or no eventId');
+      return;
+    }
+
+    console.log('📡 Setting up real-time listeners for event:', eventId);
+
+    // Join the event room
+    socket.emit('join-event', eventId);
+    console.log('✅ Joined event room:', eventId);
+
+    // Listen for new messages
+    const handleNewMessage = (newMsg) => {
+      console.log('📨 New message received:', newMsg);
+      setMessages(prev => {
+        // Check if message already exists (avoid duplicates)
+        if (prev.some(m => m._id === newMsg._id)) {
+          console.log('⚠️ Duplicate message detected, skipping');
+          return prev;
+        }
+        return [...prev, newMsg];
+      });
+      scrollToBottom();
+      
+      // Only increment unread if not from current user
+      if (newMsg.author !== currentUserId && newMsg.author?._id !== currentUserId) {
+        setUnreadCount(prev => prev + 1);
+      }
+    };
+
+    // Listen for new replies
+    const handleNewReply = ({ parentId, reply }) => {
+      console.log('💬 New reply received for message:', parentId);
+      setMessages(prev => prev.map(m => {
+        if (m._id === parentId) {
+          // Check if reply already exists
+          if (m.replies && m.replies.some(r => r._id === reply._id)) {
+            console.log('⚠️ Duplicate reply detected, skipping');
+            return m;
+          }
+          return {
+            ...m,
+            replies: [...(m.replies || []), reply],
+            replyCount: (m.replyCount || 0) + 1,
+          };
+        }
+        return m;
+      }));
+      
+      // Only increment unread if not from current user
+      if (reply.author !== currentUserId && reply.author?._id !== currentUserId) {
+        setUnreadCount(prev => prev + 1);
+      }
+    };
+
+    // Listen for message deletions
+    const handleMessageDeleted = ({ messageId }) => {
+      console.log('🗑️ Message deleted:', messageId);
+      setMessages(prev => prev.filter(m => m._id !== messageId));
+    };
+
+    // Listen for pin updates
+    const handleMessagePinned = ({ messageId, isPinned }) => {
+      console.log('📌 Message pin toggled:', messageId, isPinned);
+      setMessages(prev => {
+        const updated = prev.map(m => 
+          m._id === messageId ? { ...m, isPinned } : m
+        );
+        // Re-sort: pinned messages first, then announcements, then chronological
+        return updated.sort((a, b) => {
+          if (a.isPinned && !b.isPinned) return -1;
+          if (!a.isPinned && b.isPinned) return 1;
+          if (a.isAnnouncement && !b.isAnnouncement) return -1;
+          if (!a.isAnnouncement && b.isAnnouncement) return 1;
+          return new Date(a.createdAt) - new Date(b.createdAt);
+        });
+      });
+    };
+
+    // Listen for reaction updates
+    const handleReactionUpdated = ({ messageId, reactions }) => {
+      console.log('👍 Reaction updated:', messageId, reactions);
+      setMessages(prev => prev.map(m => 
+        m._id === messageId ? { ...m, reactions } : m
+      ));
+    };
+
+    // Listen for announcements
+    const handleAnnouncement = ({ content, authorName }) => {
+      console.log('📢 Announcement received:', content);
+      addToast(`📢 ${authorName}: ${content.slice(0, 80)}${content.length > 80 ? '…' : ''}`, 'announcement');
+    };
+
+    // Attach all listeners
+    socket.on('new-message', handleNewMessage);
+    socket.on('new-reply', handleNewReply);
+    socket.on('message-deleted', handleMessageDeleted);
+    socket.on('message-pinned', handleMessagePinned);
+    socket.on('reaction-updated', handleReactionUpdated);
+    socket.on('announcement', handleAnnouncement);
+
+    // Cleanup function
+    return () => {
+      console.log('🧹 Cleaning up socket listeners for event:', eventId);
+      socket.emit('leave-event', eventId);
+      socket.off('new-message', handleNewMessage);
+      socket.off('new-reply', handleNewReply);
+      socket.off('message-deleted', handleMessageDeleted);
+      socket.off('message-pinned', handleMessagePinned);
+      socket.off('reaction-updated', handleReactionUpdated);
+      socket.off('announcement', handleAnnouncement);
+    };
+  }, [socket, eventId, scrollToBottom, addToast, currentUserId]);
 
   // ── Mark read when tab is focused ─────────────────────────────────────────
   useEffect(() => {
@@ -377,16 +443,48 @@ const DiscussionForum = ({ eventId }) => {
   // ── Post message ───────────────────────────────────────────────────────────
   const handlePost = async () => {
     if (!newMessage.trim() || posting) return;
+    
+    // Create optimistic message for immediate UI update
+    const optimisticMessage = {
+      _id: `temp-${Date.now()}`, // Temporary ID
+      content: newMessage.trim(),
+      authorName: isOrganizer ? organizer.name : `${user.firstName} ${user.lastName}`,
+      authorModel: isOrganizer ? 'Organizer' : 'User',
+      author: currentUserId,
+      isAnnouncement,
+      isPinned: false,
+      reactions: [],
+      replies: [],
+      replyCount: 0,
+      createdAt: new Date().toISOString(),
+    };
+    
     setPosting(true);
+    const messageContent = newMessage.trim();
+    setNewMessage('');
+    
+    // Optimistically add message to UI
+    setMessages(prev => [...prev, optimisticMessage]);
+    scrollToBottom();
+    
     try {
-      await discussionAPI.postMessage(eventId, {
-        content: newMessage.trim(),
+      const response = await discussionAPI.postMessage(eventId, {
+        content: messageContent,
         isAnnouncement,
       });
-      setNewMessage('');
+      
+      // Replace optimistic message with real one from server
+      setMessages(prev => prev.map(m => 
+        m._id === optimisticMessage._id ? response.data.message : m
+      ));
+      
       setIsAnnouncement(false);
-      // Socket will deliver it back via 'new-message'
+      // Socket will also deliver it, but our duplicate check will handle it
     } catch (err) {
+      console.error('Error posting message:', err);
+      // Remove optimistic message on error
+      setMessages(prev => prev.filter(m => m._id !== optimisticMessage._id));
+      setNewMessage(messageContent); // Restore message
       addToast(err.response?.data?.message || 'Failed to post message', 'error');
     } finally {
       setPosting(false);
@@ -395,34 +493,111 @@ const DiscussionForum = ({ eventId }) => {
 
   // ── Reply ──────────────────────────────────────────────────────────────────
   const handleReply = async (parentId, content) => {
-    await discussionAPI.postReply(parentId, { content });
-    // Socket delivers via 'new-reply'
+    try {
+      const response = await discussionAPI.postReply(parentId, { content });
+      
+      // Optimistically add reply to UI
+      setMessages(prev => prev.map(m => {
+        if (m._id === parentId) {
+          return {
+            ...m,
+            replies: [...(m.replies || []), response.data.reply],
+            replyCount: (m.replyCount || 0) + 1,
+          };
+        }
+        return m;
+      }));
+      
+      // Socket will also deliver it, but our duplicate check will handle it
+    } catch (err) {
+      console.error('Error posting reply:', err);
+      addToast('Failed to post reply', 'error');
+      throw err; // Re-throw so MessageBubble can handle it
+    }
   };
 
   // ── Delete ────────────────────────────────────────────────────────────────
   const handleDelete = async (messageId) => {
     if (!confirm('Delete this message?')) return;
+    
+    // Optimistically remove from UI
+    const previousMessages = [...messages];
+    setMessages(prev => prev.filter(m => m._id !== messageId));
+    
     try {
       await discussionAPI.deleteMessage(messageId);
+      // Socket will also deliver deletion event
     } catch (err) {
+      console.error('Error deleting message:', err);
+      // Restore on error
+      setMessages(previousMessages);
       addToast('Failed to delete message', 'error');
     }
   };
 
   // ── Pin ───────────────────────────────────────────────────────────────────
   const handlePin = async (messageId) => {
+    // Optimistically update UI
+    const previousMessages = [...messages];
+    setMessages(prev => {
+      const updated = prev.map(m => 
+        m._id === messageId ? { ...m, isPinned: !m.isPinned } : m
+      );
+      return updated.sort((a, b) => {
+        if (a.isPinned && !b.isPinned) return -1;
+        if (!a.isPinned && b.isPinned) return 1;
+        return new Date(a.createdAt) - new Date(b.createdAt);
+      });
+    });
+    
     try {
       await discussionAPI.pinMessage(messageId);
+      // Socket will also deliver pin event
     } catch (err) {
+      console.error('Error pinning message:', err);
+      // Restore on error
+      setMessages(previousMessages);
       addToast('Failed to pin message', 'error');
     }
   };
 
   // ── React ─────────────────────────────────────────────────────────────────
   const handleReact = async (messageId, emoji) => {
+    // Optimistically update UI
+    const previousMessages = [...messages];
+    setMessages(prev => prev.map(m => {
+      if (m._id === messageId) {
+        const reactions = Array.isArray(m.reactions) ? [...m.reactions] : [];
+        const existingIdx = reactions.findIndex(
+          r => (r.user === currentUserId || r.user?._id === currentUserId) && r.emoji === emoji
+        );
+        
+        if (existingIdx >= 0) {
+          reactions.splice(existingIdx, 1);
+        } else {
+          const otherIdx = reactions.findIndex(
+            r => r.user === currentUserId || r.user?._id === currentUserId
+          );
+          if (otherIdx >= 0) reactions.splice(otherIdx, 1);
+          reactions.push({ 
+            user: currentUserId, 
+            userModel: isOrganizer ? 'Organizer' : 'User',
+            emoji 
+          });
+        }
+        
+        return { ...m, reactions };
+      }
+      return m;
+    }));
+    
     try {
       await discussionAPI.reactToMessage(messageId, { emoji });
+      // Socket will also deliver reaction update
     } catch (err) {
+      console.error('Error reacting to message:', err);
+      // Restore on error
+      setMessages(previousMessages);
       addToast('Failed to react', 'error');
     }
   };
@@ -437,6 +612,31 @@ const DiscussionForum = ({ eventId }) => {
 
   return (
     <div className="relative flex flex-col" style={{ minHeight: '400px' }}>
+
+      {/* Connection Status Indicator */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          {connected ? (
+            <div className="flex items-center gap-2 text-xs text-green-600">
+              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+              <span className="font-medium">Live</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-xs text-yellow-600">
+              <span className="w-2 h-2 bg-yellow-500 rounded-full"></span>
+              <span className="font-medium">Reconnecting...</span>
+            </div>
+          )}
+        </div>
+
+        {/* Unread badge */}
+        {unreadCount > 0 && (
+          <div className="flex items-center gap-2 px-3 py-1 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-700">
+            <FiBell size={12} />
+            {unreadCount} new {unreadCount === 1 ? 'message' : 'messages'}
+          </div>
+        )}
+      </div>
 
       {/* Toast notifications */}
       <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none">
@@ -455,14 +655,6 @@ const DiscussionForum = ({ eventId }) => {
           </div>
         ))}
       </div>
-
-      {/* Unread badge */}
-      {unreadCount > 0 && (
-        <div className="flex items-center gap-2 mb-3 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
-          <FiBell size={14} />
-          {unreadCount} new {unreadCount === 1 ? 'message' : 'messages'}
-        </div>
-      )}
 
       {/* Messages area */}
       <div

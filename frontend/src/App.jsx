@@ -6,6 +6,7 @@ import ProtectedRoute from './components/common/ProtectedRoute';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import OnboardingPage from './pages/Onboarding';
+import { SocketProvider } from './contexts/SocketContext';
 
 // Participant pages
 import ParticipantDashboard from './components/participant/Dashboard';
@@ -32,6 +33,7 @@ import PasswordResets from './components/admin/PasswordResets';
 function App() {
   return (
     <AuthProvider>
+      <SocketProvider>
       <BrowserRouter>
         <Routes>
           {/* Public routes */}
@@ -133,6 +135,7 @@ function App() {
           <Route path="/" element={<Navigate to="/login" replace />} />
         </Routes>
       </BrowserRouter>
+      </SocketProvider>
     </AuthProvider>
   );
 }
