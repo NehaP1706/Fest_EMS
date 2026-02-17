@@ -5,6 +5,7 @@ import Navbar from '../common/Navbar';
 import Loader from '../common/Loader';
 import { FiEdit, FiTrash2, FiDownload, FiUsers, FiDollarSign, FiCheckCircle, FiClock, FiCalendar } from 'react-icons/fi';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
+import DiscussionForum from '../shared/DiscussionForum';
 
 const OrganizerEventDetail = () => {
   const { id } = useParams();
@@ -374,6 +375,8 @@ const OrganizerEventDetail = () => {
                     ))}
                   </div>
                 </div>
+
+                
               )}
 
               {/* Custom Registration Form Preview */}
@@ -401,7 +404,12 @@ const OrganizerEventDetail = () => {
                   <p className="text-sm text-gray-500">No custom fields — only basic info is collected.</p>
                 </div>
               )}
-            </div>
+
+              <div className="pt-8 border-t border-gray-100">
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">Discussion Forum</h2>
+                <DiscussionForum eventId={id} />
+              </div>
+            </div>            
           )}
 
           {/* Form Responses Tab */}
@@ -626,7 +634,7 @@ const OrganizerEventDetail = () => {
                       </PieChart>
                     </ResponsiveContainer>
                   </div>
-                )}
+                )} 
 
                 {/* Payment Status Chart */}
                 {participants.length > 0 && (

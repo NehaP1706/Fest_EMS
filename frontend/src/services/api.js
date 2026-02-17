@@ -145,8 +145,12 @@ export const merchandiseAPI = {
 export const discussionAPI = {
   getMessages: (eventId) => api.get(`/discussions/${eventId}`),
   postMessage: (eventId, data) => api.post(`/discussions/${eventId}`, data),
+  postReply: (messageId, data) => api.post(`/discussions/${messageId}/reply`, data),
   deleteMessage: (messageId) => api.delete(`/discussions/${messageId}`),
   pinMessage: (messageId) => api.post(`/discussions/${messageId}/pin`),
+  reactToMessage: (messageId, data) => api.post(`/discussions/${messageId}/react`, data),
+  markRead: (eventId) => api.post(`/discussions/${eventId}/mark-read`),
+  getUnreadCount: (eventId) => api.get(`/discussions/${eventId}/unread-count`),
 };
 
 // Feedback APIs

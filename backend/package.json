@@ -28,7 +28,8 @@
     "multer": "^2.0.0-rc.4",
     "nodemailer": "^6.9.7",
     "qrcode": "^1.5.3",
-    "socket.io": "^4.6.1"
+    "socket.io": "^4.8.3",
+    "socket.io-client": "^4.8.3"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"
