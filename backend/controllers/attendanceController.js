@@ -125,16 +125,22 @@ exports.exportAttendance = async (req, res, next) => {
       .populate('participant', 'firstName lastName email contactNumber')
       .populate('event', 'name');
 
-    const csvData = attendances.map(a => ({
-      Name: `${a.participant.firstName} ${a.participant.lastName}`,
-      Email: a.participant.email,
-      Contact: a.participant.contactNumber || 'N/A',
-      TicketID: a.ticketId,
-      ScannedAt: a.scannedAt.toISOString(),
-      ManualEntry: a.isManualEntry ? 'Yes' : 'No',
-    }));
+    // Create the CSV data with headers explicitly defined
+    const headers = ['Name', 'Email', 'Contact', 'Ticket ID', 'Timestamp', 'Method'];
+    const rows = attendances.map(a => [
+      `"${a.participant.firstName} ${a.participant.lastName}"`,
+      `"${a.participant.email}"`,
+      `"${a.participant.contactNumber || 'N/A'}"`,
+      `"${a.ticketId}"`,
+      `"${new Date(a.scannedAt).toLocaleString()}"`, // Added Timestamp
+      `"${a.isManualEntry ? 'Manual' : 'QR Scan'}"`
+    ]);
 
-    res.json({ success: true, data: csvData });
+    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename=attendance_${eventId}.csv`);
+    res.status(200).send(csvContent);
   } catch (error) {
     next(error);
   }

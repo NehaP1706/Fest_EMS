@@ -52,6 +52,8 @@ app.use(helmet({
       ...helmet.contentSecurityPolicy.getDefaultDirectives(),
       "script-src": ["'self'", "'unsafe-inline'"], // Allows React/Vite scripts to run
       "connect-src": ["'self'", "https://fest-ems.onrender.com", "wss://fest-ems.onrender.com"], // Required for API and WebSockets
+      "img-src": ["'self'", "data:", "blob:"], 
+      "media-src": ["'self'", "blob:"],  
     },
   },
 }));

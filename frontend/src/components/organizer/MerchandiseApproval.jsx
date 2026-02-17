@@ -17,6 +17,10 @@ const MerchandiseApproval = () => {
   const fetchPurchases = async () => {
     try {
       const response = await merchandiseAPI.getPendingApprovals();
+      console.log('Purchase data:', response.data.purchases);
+      if (response.data.purchases?.length > 0) {
+        console.log('First purchase payment proof path:', response.data.purchases[0].paymentProof?.path);
+      }
       setPurchases(response.data.purchases || []);
     } catch (error) {
       console.error('Error fetching purchases:', error);
@@ -33,7 +37,10 @@ const MerchandiseApproval = () => {
       alert('Payment approved successfully!');
       fetchPurchases();
     } catch (error) {
-      alert('Failed to approve payment');
+      const msg = error.response?.data?.message || error.message || 'Unknown error';
+      const status = error.response?.status || 'no response';
+      console.error('Approve failed:', status, msg, error);
+      alert(`Failed to approve payment: [${status}] ${msg}`);
     }
   };
 
@@ -113,10 +120,14 @@ const MerchandiseApproval = () => {
                       Payment Proof:
                     </p>
                     <img
-                      src={`${import.meta.env.VITE_API_URL.replace('/api', '')}/${purchase.paymentProof.path}`}
+                      src={`http://localhost:5000/uploads/${purchase.paymentProof.path}`}
                       alt="Payment Proof"
                       className="w-full h-48 object-cover rounded border cursor-pointer hover:opacity-90"
-                      onClick={() => window.open(`${import.meta.env.VITE_API_URL.replace('/api', '')}/${purchase.paymentProof.path}`, '_blank')}
+                      onClick={() => window.open(`http://localhost:5000/${purchase.paymentProof.path}`, '_blank')}
+                      onError={(e) => {
+                        console.error('Image failed to load:', purchase.paymentProof.path);
+                        e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200"%3E%3Crect fill="%23ddd" width="200" height="200"/%3E%3Ctext fill="%23999" x="50%25" y="50%25" text-anchor="middle" dy=".3em"%3EImage not found%3C/text%3E%3C/svg%3E';
+                      }}
                     />
                     <p className="text-xs text-gray-500 mt-1">
                       Click to view full size

@@ -5,7 +5,188 @@ import { useAuth } from '../../contexts/AuthContext';
 import Navbar from '../common/Navbar';
 import Loader from '../common/Loader';
 import DiscussionForum from '../shared/DiscussionForum';
-import { FiCalendar, FiClock, FiUsers, FiDollarSign, FiTag, FiX, FiCheck, FiPackage } from 'react-icons/fi';
+import { FiCalendar, FiClock, FiUsers, FiDollarSign, FiTag, FiX, FiCheck, FiShoppingCart } from 'react-icons/fi';
+
+// Merchandise Purchase Component with Payment Proof Upload
+const MerchandisePurchaseSection = ({ event, item, variant, onPurchaseComplete }) => {
+  const [quantity, setQuantity] = useState(1);
+  const [paymentProof, setPaymentProof] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState(null);
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Validate file type
+      const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
+      if (!validTypes.includes(file.type)) {
+        alert('Please upload a JPEG, PNG, or PDF file');
+        return;
+      }
+
+      // Validate file size (5MB max)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('File size must be less than 5MB');
+        return;
+      }
+
+      setPaymentProof(file);
+      
+      // Create preview for images
+      if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setPreviewUrl(reader.result);
+        };
+        reader.readAsDataURL(file);
+      } else {
+        setPreviewUrl(null);
+      }
+    }
+  };
+
+  const handlePurchase = async () => {
+    if (!paymentProof) {
+      alert('Please upload payment proof before proceeding');
+      return;
+    }
+
+    if (quantity < 1) {
+      alert('Quantity must be at least 1');
+      return;
+    }
+
+    if (variant.stock < quantity) {
+      alert(`Only ${variant.stock} items available in stock`);
+      return;
+    }
+
+    setUploading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('paymentProof', paymentProof);
+      formData.append('variantId', variant._id?.toString() || variant._id);
+      formData.append('quantity', quantity);
+
+      const response = await merchandiseAPI.purchase(event._id, formData);
+      
+      alert('Purchase order submitted successfully! Your payment proof is being reviewed by the organizer. You will receive a confirmation email once approved.');
+      
+      // Reset form
+      setPaymentProof(null);
+      setPreviewUrl(null);
+      setQuantity(1);
+      
+      if (onPurchaseComplete) {
+        onPurchaseComplete();
+      }
+    } catch (error) {
+      alert(error.response?.data?.message || 'Failed to submit purchase order');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const totalAmount = variant.price * quantity;
+
+  return (
+    <div className="bg-white rounded-lg shadow-md p-6 mt-4">
+      <h3 className="text-xl font-semibold mb-4 flex items-center">
+        <FiShoppingCart className="mr-2" />
+        Purchase {item.itemName}
+      </h3>
+      
+      <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-4">
+        <p className="text-sm text-blue-800">
+          <strong>Variant:</strong> {variant.name}
+        </p>
+        <p className="text-sm text-blue-800">
+          <strong>Price:</strong> ₹{variant.price} per unit
+        </p>
+      </div>
+
+      <div className="mb-4">
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Quantity
+        </label>
+        <input
+          type="number"
+          min="1"
+          max={variant.stock}
+          value={quantity}
+          onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+        />
+        <p className="text-sm text-gray-500 mt-1">
+          Available stock: {variant.stock}
+        </p>
+      </div>
+
+      <div className="mb-4">
+        <p className="text-lg font-semibold">
+          Total Amount: <span className="text-green-600">₹{totalAmount}</span>
+        </p>
+      </div>
+
+      <div className="mb-4">
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Upload Payment Proof * <span className="text-red-500">(Required)</span>
+        </label>
+        <p className="text-xs text-gray-500 mb-2">
+          Please upload a screenshot or photo of your payment transaction
+          (JPEG, PNG, or PDF, max 5MB)
+        </p>
+        
+        <input
+          type="file"
+          accept="image/jpeg,image/jpg,image/png,application/pdf"
+          onChange={handleFileChange}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+        />
+
+        {previewUrl && (
+          <div className="mt-3">
+            <p className="text-sm font-medium text-gray-700 mb-2">Preview:</p>
+            <img
+              src={previewUrl}
+              alt="Payment proof preview"
+              className="max-w-full h-48 object-contain border rounded"
+            />
+          </div>
+        )}
+
+        {paymentProof && !previewUrl && (
+          <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded">
+            <p className="text-sm text-blue-800">
+              📄 {paymentProof.name} ({(paymentProof.size / 1024).toFixed(1)} KB)
+            </p>
+          </div>
+        )}
+      </div>
+
+      <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+        <p className="text-sm text-yellow-800">
+          <strong>Note:</strong> Your order will be submitted for approval. 
+          The organizer will review your payment proof and approve or reject your purchase.
+          You will receive a confirmation email with your QR ticket once your payment is approved.
+        </p>
+      </div>
+
+      <button
+        onClick={handlePurchase}
+        disabled={!paymentProof || uploading}
+        className={`w-full py-3 px-4 rounded-lg font-semibold transition-colors ${
+          !paymentProof || uploading
+            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+            : 'bg-blue-600 text-white hover:bg-blue-700'
+        }`}
+      >
+        {uploading ? 'Submitting Order...' : 'Submit Purchase Order'}
+      </button>
+    </div>
+  );
+};
 
 const EventDetails = () => {
   const { id } = useParams();
@@ -15,17 +196,16 @@ const EventDetails = () => {
   const [loading, setLoading] = useState(true);
   const [registering, setRegistering] = useState(false);
   const [showRegistrationModal, setShowRegistrationModal] = useState(false);
-  const [showMerchModal, setShowMerchModal] = useState(false);
+  const [showPurchaseModal, setShowPurchaseModal] = useState(false);
   const [formData, setFormData] = useState({});
   const [myRegistration, setMyRegistration] = useState(null);
   const [myMerchPurchase, setMyMerchPurchase] = useState(null);
   const [checkingRegistration, setCheckingRegistration] = useState(true);
   
-  // Merch claim form
-  const [selectedItem, setSelectedItem] = useState(null);
-  const [selectedVariant, setSelectedVariant] = useState('');
-  const [merchQuantity, setMerchQuantity] = useState(1);
-  const [claiming, setClaiming] = useState(false);
+
+  // Direct purchase with payment proof
+  const [purchaseItem, setPurchaseItem] = useState(null);
+  const [purchaseVariant, setPurchaseVariant] = useState(null);
 
   useEffect(() => {
     fetchEvent();
@@ -46,10 +226,6 @@ const EventDetails = () => {
         setFormData(initialData);
       }
 
-      // If merchandise event, set first item as default
-      if (response.data.event.eventType === 'merchandise' && response.data.event.merchandiseItems?.length > 0) {
-        setSelectedItem(response.data.event.merchandiseItems[0]);
-      }
     } catch (error) {
       console.error('Error fetching event:', error);
     } finally {
@@ -63,30 +239,24 @@ const EventDetails = () => {
       const response = await registrationAPI.getMyRegistrations();
       const registrations = response.data.registrations || [];
       
-      // ✅ Filter out cancelled and rejected registrations
       const existingReg = registrations.find(reg => {
         const eventId = typeof reg.event === 'object' ? reg.event._id : reg.event;
         const isMatchingEvent = eventId === id;
-        const isActiveRegistration = reg.status === 'confirmed'; // ✅ Only confirmed
+        const isActiveRegistration = reg.status === 'confirmed';
         
         return isMatchingEvent && isActiveRegistration;
       });
       
-      setMyRegistration(existingReg || null);  // ✅ Only sets if confirmed
+      setMyRegistration(existingReg || null);
 
-      // If registered for merch event, check if already claimed
-      if (existingReg) {
-        const merchResponse = await merchandiseAPI.getMyPurchases();
-        const purchases = merchResponse.data.purchases || [];
-        const existingPurchase = purchases.find(p => {
-          const eventId = typeof p.event === 'object' ? p.event._id : p.event;
-          return eventId === id;
-        });
-        setMyMerchPurchase(existingPurchase || null);
-      } else {
-        // ✅ If no active registration, clear merch purchase too
-        setMyMerchPurchase(null);
-      }
+      // Check for existing merchandise purchases
+      const merchResponse = await merchandiseAPI.getMyPurchases();
+      const purchases = merchResponse.data.purchases || [];
+      const existingPurchase = purchases.find(p => {
+        const eventId = typeof p.event === 'object' ? p.event._id : p.event;
+        return eventId === id;
+      });
+      setMyMerchPurchase(existingPurchase || null);
     } catch (error) {
       console.error('Error checking registration:', error);
       setMyRegistration(null);
@@ -166,43 +336,22 @@ const EventDetails = () => {
     }
   };
 
-  const handleClaimMerch = () => {
-    setShowMerchModal(true);
+
+  // Handle direct purchase with payment proof
+  const handleDirectPurchase = (item, variant) => {
+    setPurchaseItem(item);
+    setPurchaseVariant(variant);
+    setShowPurchaseModal(true);
   };
 
-  const handleSubmitMerchClaim = async () => {
-    if (!selectedVariant) {
-      alert('Please select a variant');
-      return;
-    }
-
-    if (merchQuantity < 1) {
-      alert('Quantity must be at least 1');
-      return;
-    }
-
-    try {
-      setClaiming(true);
-      
-      const response = await merchandiseAPI.claimMerchandise(myRegistration._id, {
-        itemId: selectedItem.itemId,
-        variant: selectedVariant,
-        quantity: merchQuantity,
-      });
-
-      alert('Merchandise claimed successfully! Check your email for the ticket.');
-      setShowMerchModal(false);
-      
-      setMyMerchPurchase(response.data.purchase);
-      await Promise.all([
-        checkExistingRegistration(),
-        fetchEvent()
-      ]);
-    } catch (error) {
-      alert(error.response?.data?.message || 'Failed to claim merchandise');
-    } finally {
-      setClaiming(false);
-    }
+  const handlePurchaseComplete = async () => {
+    setShowPurchaseModal(false);
+    setPurchaseItem(null);
+    setPurchaseVariant(null);
+    await Promise.all([
+      checkExistingRegistration(),
+      fetchEvent()
+    ]);
   };
 
   const validateForm = () => {
@@ -368,17 +517,6 @@ const EventDetails = () => {
     return true;
   };
 
-  const canClaimMerch = () => {
-    if (!event || event.eventType !== 'merchandise') return false;
-    if (!myRegistration) return false;
-    if (myMerchPurchase) return false;
-    
-    const now = new Date();
-    const eventEnd = new Date(event.eventEndDate);
-    if (now > eventEnd) return false;
-    
-    return true;
-  };
 
   if (loading || checkingRegistration) {
     return (
@@ -494,41 +632,6 @@ const EventDetails = () => {
                 </div>
               </div>
 
-              {/* Merchandise Claim Section */}
-              {event.eventType === 'merchandise' && (
-                <div>
-                  {myMerchPurchase ? (
-                    <div className="bg-purple-50 border-2 border-purple-200 text-purple-800 px-4 py-4 rounded-lg">
-                      <div className="flex items-center">
-                        <FiPackage className="mr-3 flex-shrink-0" size={24} />
-                        <div>
-                          <p className="font-semibold">Merchandise Claimed!</p>
-                          <p className="text-sm mt-1">
-                            {myMerchPurchase.merchandiseItem?.itemName} - {myMerchPurchase.variant?.name} (x{myMerchPurchase.quantity})
-                          </p>
-                          <p className="text-sm">
-                            Ticket ID: <span className="font-mono">{myMerchPurchase.ticketId}</span>
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  ) : canClaimMerch() ? (
-                    <button
-                      onClick={handleClaimMerch}
-                      disabled={claiming}
-                      className="w-full btn-primary py-3 text-lg disabled:opacity-50 flex items-center justify-center"
-                    >
-                      <FiPackage className="mr-2" />
-                      {claiming ? 'Claiming...' : 'Claim Merchandise'}
-                    </button>
-                  ) : (
-                    <div className="bg-gray-50 border border-gray-200 text-gray-700 px-4 py-3 rounded-lg">
-                      Event has ended or merchandise claim period has passed
-                    </div>
-                  )}
-                </div>
-              )}
-              
               <button
                 onClick={handleCancelRegistration}
                 disabled={registering}
@@ -553,6 +656,96 @@ const EventDetails = () => {
             </div>
           )}
         </div>
+
+        {/* Merchandise Purchase Section (Direct Purchase with Payment Proof) */}
+        {event.eventType === 'merchandise' && event.merchandiseItems && event.merchandiseItems.length > 0 && (
+          <div className="card mb-6">
+            <h2 className="text-2xl font-semibold text-gray-900 mb-4 flex items-center">
+              <FiShoppingCart className="mr-2" />
+              Available Merchandise
+            </h2>
+            <p className="text-gray-600 mb-6">
+              Purchase merchandise by uploading your payment proof. Your order will be reviewed by the organizer.
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {event.merchandiseItems.map((item) => (
+                <div key={item._id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                  <h3 className="font-semibold text-lg text-gray-900 mb-2">{item.itemName}</h3>
+                  <p className="text-sm text-gray-600 mb-4">{item.description}</p>
+                  
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-gray-700">Available Variants:</p>
+                    {item.variants && item.variants.map((variant) => (
+                      <div key={variant._id} className="flex items-center justify-between bg-gray-50 p-3 rounded">
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">{variant.name}</p>
+                          <p className="text-xs text-gray-600">
+                            {variant.size && `Size: ${variant.size}`}
+                            {variant.color && ` • Color: ${variant.color}`}
+                          </p>
+                          <p className="text-xs text-gray-500">Stock: {variant.stock}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-lg font-bold text-green-600">₹{variant.price}</p>
+                          {variant.stock > 0 ? (
+                            <button
+                              onClick={() => handleDirectPurchase(item, variant)}
+                              className="mt-2 px-4 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
+                            >
+                              Purchase
+                            </button>
+                          ) : (
+                            <p className="text-xs text-red-600 mt-2">Out of Stock</p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Purchase Status Section */}
+        {myMerchPurchase && myMerchPurchase.paymentStatus && (
+          <div className="card mb-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Your Purchase Status</h2>
+            <div className={`p-4 rounded-lg border-2 ${
+              myMerchPurchase.paymentStatus === 'pending' 
+                ? 'bg-yellow-50 border-yellow-200 text-yellow-800'
+                : myMerchPurchase.paymentStatus === 'approved'
+                ? 'bg-green-50 border-green-200 text-green-800'
+                : 'bg-red-50 border-red-200 text-red-800'
+            }`}>
+              <p className="font-semibold mb-2">
+                Status: {myMerchPurchase.paymentStatus.toUpperCase()}
+              </p>
+              <p className="text-sm">
+                Item: {myMerchPurchase.merchandiseItem?.itemName} - {myMerchPurchase.variant?.name}
+              </p>
+              <p className="text-sm">
+                Quantity: {myMerchPurchase.quantity} • Amount: ₹{myMerchPurchase.totalAmount}
+              </p>
+              {myMerchPurchase.paymentStatus === 'pending' && (
+                <p className="text-sm mt-2">
+                  Your payment proof is being reviewed. You will be notified once it's approved.
+                </p>
+              )}
+              {myMerchPurchase.paymentStatus === 'rejected' && myMerchPurchase.rejectionReason && (
+                <p className="text-sm mt-2">
+                  <strong>Reason:</strong> {myMerchPurchase.rejectionReason}
+                </p>
+              )}
+              {myMerchPurchase.paymentStatus === 'approved' && myMerchPurchase.ticketId && (
+                <p className="text-sm mt-2">
+                  Ticket ID: <span className="font-mono">{myMerchPurchase.ticketId}</span>
+                </p>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Discussion Forum */}
         <div className="card">
@@ -651,127 +844,27 @@ const EventDetails = () => {
         </div>
       )}
 
-      {/* Merchandise Claim Modal */}
-      {showMerchModal && selectedItem && (
+      {/* Direct Purchase Modal (with Payment Proof) */}
+      {showPurchaseModal && purchaseItem && purchaseVariant && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-gray-900">Claim Merchandise</h2>
+              <h2 className="text-2xl font-bold text-gray-900">Purchase Merchandise</h2>
               <button
-                onClick={() => setShowMerchModal(false)}
+                onClick={() => setShowPurchaseModal(false)}
                 className="text-gray-400 hover:text-gray-600"
-                disabled={claiming}
               >
                 <FiX size={24} />
               </button>
             </div>
 
             <div className="p-6">
-              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-6">
-                <h3 className="font-semibold text-purple-900 mb-2">{selectedItem.itemName}</h3>
-                <p className="text-sm text-purple-700">{selectedItem.description}</p>
-              </div>
-
-              <form onSubmit={(e) => { e.preventDefault(); handleSubmitMerchClaim(); }} className="space-y-6">
-                {/* Item Selection (if multiple items) */}
-                {event.merchandiseItems && event.merchandiseItems.length > 1 && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Select Item <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={selectedItem.itemId}
-                      onChange={(e) => {
-                        const item = event.merchandiseItems.find(i => i.itemId === e.target.value);
-                        setSelectedItem(item);
-                        setSelectedVariant('');
-                      }}
-                      className="input"
-                      required
-                    >
-                      {event.merchandiseItems.map((item) => (
-                        <option key={item.itemId} value={item.itemId}>
-                          {item.itemName}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                {/* Variant Selection */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Select Variant <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={selectedVariant}
-                    onChange={(e) => setSelectedVariant(e.target.value)}
-                    className="input"
-                    required
-                  >
-                    <option value="">Choose size/color...</option>
-                    {selectedItem.variants && selectedItem.variants.map((variant) => (
-                      <option 
-                        key={variant.variantId} 
-                        value={variant.variantId}
-                        disabled={variant.stock === 0}
-                      >
-                        {variant.name} - ₹{variant.price} 
-                        {variant.stock === 0 ? ' (Out of Stock)' : ` (${variant.stock} available)`}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Quantity */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Quantity <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    max={selectedItem.purchaseLimit || 10}
-                    value={merchQuantity}
-                    onChange={(e) => setMerchQuantity(parseInt(e.target.value))}
-                    className="input"
-                    required
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Maximum {selectedItem.purchaseLimit || 10} per participant
-                  </p>
-                </div>
-
-                {/* Total */}
-                {selectedVariant && (
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <div className="flex justify-between items-center">
-                      <span className="font-medium text-gray-900">Total Amount:</span>
-                      <span className="text-2xl font-bold text-primary-600">
-                        ₹{(selectedItem.variants.find(v => v.variantId === selectedVariant)?.price || 0) * merchQuantity}
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex gap-4 pt-6 border-t">
-                  <button
-                    type="button"
-                    onClick={() => setShowMerchModal(false)}
-                    className="flex-1 btn-secondary"
-                    disabled={claiming}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={claiming || !selectedVariant}
-                    className="flex-1 btn-primary disabled:opacity-50"
-                  >
-                    {claiming ? 'Claiming...' : 'Confirm Claim'}
-                  </button>
-                </div>
-              </form>
+              <MerchandisePurchaseSection
+                event={event}
+                item={purchaseItem}
+                variant={purchaseVariant}
+                onPurchaseComplete={handlePurchaseComplete}
+              />
             </div>
           </div>
         </div>

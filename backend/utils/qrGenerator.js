@@ -47,7 +47,7 @@ const decodeQR = (qrData) => {
   try {
     return JSON.parse(qrData);
   } catch (error) {
-    throw new Error('Invalid QR code data');
+    return { ticketId: qrData };
   }
 };
 

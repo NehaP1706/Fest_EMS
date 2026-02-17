@@ -63,7 +63,7 @@ const QRScanner = () => {
   const onScanSuccess = async (decodedText) => {
     try {
       // Parse QR data
-      const qrData = JSON.parse(decodedText);
+      //const qrData = JSON.parse(decodedText);
 
       // Mark attendance
       const response = await attendanceAPI.scanQR({
@@ -151,7 +151,7 @@ const QRScanner = () => {
 
           {/* QR Scanner Display - This must render BEFORE initializing */}
           {scanning && (
-            <div className="mb-6">
+            <div className={`mb-6 ${!scanning ? 'hidden' : ''}`}>
               <div id="qr-reader" className="w-full"></div>
             </div>
           )}

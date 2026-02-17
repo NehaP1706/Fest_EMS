@@ -520,48 +520,77 @@ const OrganizerEventDetail = () => {
                           Status
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          Attendance
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                           Date
                         </th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {filteredParticipants.map((item) => (
-                        <tr key={item._id}>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {item.participant?.firstName} {item.participant?.lastName}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                            {item.participant?.email}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm">
-                            <span
-                              className={`px-2 py-1 rounded-full text-xs ${
-                                item.participant?.participantType === 'iiit'
-                                  ? 'bg-blue-100 text-blue-800'
-                                  : 'bg-gray-100 text-gray-800'
-                              }`}
-                            >
-                              {item.participant?.participantType === 'iiit' ? 'IIIT' : 'Non-IIIT'}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm">
-                            <span
-                              className={`px-2 py-1 rounded-full text-xs ${
-                                (item.paymentStatus === 'completed' || item.status === 'approved')
-                                  ? 'bg-green-100 text-green-800'
-                                  : item.status === 'rejected'
-                                  ? 'bg-red-100 text-red-800'
-                                  : 'bg-yellow-100 text-yellow-800'
-                              }`}
-                            >
-                              {item.paymentStatus || item.status}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                            {new Date(item.registeredAt || item.purchaseDate).toLocaleDateString()}
-                          </td>
-                        </tr>
-                      ))}
+                      {filteredParticipants.map((item) => {
+                        const participantId = item.participant?._id?.toString();
+
+                        // Cross-reference against the attendance array fetched from attendanceAPI
+                        // attendance records have a participant field with _id
+                        const isPresent = attendance.some(
+                          (a) => a.participant?._id?.toString() === participantId
+                            || a.participant?.toString() === participantId
+                        );
+
+                        // Payment/registration status
+                        const ps = item.paymentStatus || item.status || '';
+                        const isApproved = ps === 'approved' || ps === 'completed';
+                        const isRejected = ps === 'rejected';
+                        const statusClass = isApproved
+                          ? 'bg-green-100 text-green-800'
+                          : isRejected
+                          ? 'bg-red-100 text-red-800'
+                          : 'bg-yellow-100 text-yellow-800';
+
+                        // Date
+                        const dateVal = item.registeredAt || item.purchasedAt || item.purchaseDate;
+                        const dateStr = dateVal && !isNaN(new Date(dateVal))
+                          ? new Date(dateVal).toLocaleDateString()
+                          : '—';
+
+                        return (
+                          <tr key={item._id}>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                              {item.participant?.firstName} {item.participant?.lastName}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                              {item.participant?.email}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                              <span
+                                className={`px-2 py-1 rounded-full text-xs ${
+                                  item.participant?.participantType === 'iiit'
+                                    ? 'bg-blue-100 text-blue-800'
+                                    : 'bg-gray-100 text-gray-800'
+                                }`}
+                              >
+                                {item.participant?.participantType === 'iiit' ? 'IIIT' : 'Non-IIIT'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusClass}`}>
+                                {ps.charAt(0).toUpperCase() + ps.slice(1) || '—'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                isPresent ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                              }`}>
+                                {isPresent ? 'Present' : 'Absent'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                              {dateStr}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

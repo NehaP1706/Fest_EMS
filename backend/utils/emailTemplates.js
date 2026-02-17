@@ -394,4 +394,76 @@ exports.merchandiseClaimedEmail = ({
   `;
 };
 
+exports.merchandiseTicketEmail = ({
+  participantName,
+  eventName,
+  itemName,
+  variant,
+  quantity,
+  ticketId,
+  qrCode,
+}) => `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+    .content { background: white; padding: 30px; border: 1px solid #e0e0e0; }
+    .ticket-box { background: #f8f9fa; border: 2px dashed #667eea; padding: 20px; margin: 20px 0; border-radius: 8px; text-align: center; }
+    .qr-code { margin: 20px 0; }
+    .details { background: #f0f4f8; padding: 15px; border-radius: 8px; margin: 20px 0; }
+    .details p { margin: 8px 0; }
+    .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+    .highlight { color: #667eea; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🎫 Merchandise Ticket</h1>
+      <p>Your payment has been approved!</p>
+    </div>
+    
+    <div class="content">
+      <p>Dear <strong>${participantName}</strong>,</p>
+      
+      <p>Great news! Your merchandise purchase for <strong>${eventName}</strong> has been approved and your ticket is ready!</p>
+      
+      <div class="details">
+        <p><strong>Item:</strong> ${itemName}</p>
+        <p><strong>Variant:</strong> ${variant}</p>
+        <p><strong>Quantity:</strong> ${quantity}</p>
+        <p><strong>Ticket ID:</strong> <span class="highlight">${ticketId}</span></p>
+      </div>
+      
+      <div class="ticket-box">
+        <h3>Your QR Code Ticket</h3>
+        <p>Present this QR code at the merchandise collection point</p>
+        <div class="qr-code">
+          <img src="${qrCode}" alt="QR Code" style="width: 250px; height: 250px;" />
+        </div>
+        <p><strong>Ticket ID:</strong> ${ticketId}</p>
+      </div>
+      
+      <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0;">
+        <p style="margin: 0;"><strong>Important:</strong> Save this email or take a screenshot of your QR code. You'll need to show it to collect your merchandise at the event.</p>
+      </div>
+      
+      <p>If you have any questions, please contact the event organizers.</p>
+      
+      <p>See you at the event!</p>
+    </div>
+    
+    <div class="footer">
+      <p>This is an automated email. Please do not reply.</p>
+      <p>&copy; ${new Date().getFullYear()} Event Management System</p>
+    </div>
+  </div>
+</body>
+</html>
+`;
+
 module.exports = exports;

@@ -1,392 +1,445 @@
 const MerchandisePurchase = require('../models/MerchandisePurchase');
 const Registration = require('../models/Registration');
 const Event = require('../models/Event');
-const { generateTicketId, generateQR } = require('../utils/qrGenerator');
+const QRCode = require('qrcode');
+const { generateTicketId } = require('../utils/qrGenerator');
 const { sendEmail } = require('../config/email');
-const { merchandiseApprovalEmail, merchandiseRejectionEmail, merchandiseClaimedEmail } = require('../utils/emailTemplates');
+const { merchandiseTicketEmail } = require('../utils/emailTemplates');
 
-// @desc    Purchase merchandise (upload payment proof)
-// @route   POST /api/merchandise/:eventId/purchase
-// @access  Private (Participant)
+// PARTICIPANT: Purchase merchandise with payment proof upload
 exports.purchaseMerchandise = async (req, res, next) => {
   try {
-    const eventId = req.params.eventId;
-    const { variant, quantity } = req.body;
+    const { eventId } = req.params;
+    const { variantId, quantity } = req.body;
+
+    // Validate payment proof upload
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'Payment proof is required. Please upload a receipt image (JPEG, PNG, or PDF).',
+      });
+    }
+
     const event = await Event.findById(eventId);
-
-    if (!event || event.eventType !== 'merchandise') {
-      return res.status(400).json({ success: false, message: 'Invalid merchandise event' });
+    if (!event) {
+      return res.status(404).json({ success: false, message: 'Event not found' });
     }
 
-    // Check stock
-    const selectedVariant = event.merchandiseDetails.variants.find(v => v.name === variant);
-    if (!selectedVariant || selectedVariant.stock < quantity) {
-      return res.status(400).json({ success: false, message: 'Insufficient stock' });
+    // DEBUG: Log the event structure
+    console.log('Event merchandiseItems:', event.merchandiseItems);
+    console.log('Looking for variantId:', variantId);
+
+    // Check if merchandiseItems exists
+    if (!event.merchandiseItems || event.merchandiseItems.length === 0) {
+      return res.status(404).json({ success: false, message: 'No merchandise items found for this event' });
     }
 
+    // Find the merchandise item and variant in merchandiseItems array
+    let merchItem = null;
+    let variant = null;
+
+    for (const item of event.merchandiseItems) {
+      console.log('Checking item:', item.itemName, 'variants:', item.variants?.length);
+      if (item.variants && item.variants.length > 0) {
+        const foundVariant = item.variants.find(v => v._id.toString() === variantId);
+        if (foundVariant) {
+          merchItem = item;
+          variant = foundVariant;
+          console.log('Found variant:', variant.name);
+          break;
+        }
+      }
+    }
+
+    if (!merchItem || !variant) {
+      console.log('Variant not found. Available variants:');
+      event.merchandiseItems.forEach(item => {
+        console.log(`Item: ${item.itemName}`);
+        item.variants?.forEach(v => console.log(`  - ${v.name} (ID: ${v._id})`));
+      });
+      return res.status(404).json({ success: false, message: 'Merchandise item or variant not found' });
+    }
+
+    // Check stock availability (don't decrement yet - wait for approval)
+    if (variant.stock < quantity) {
+      return res.status(400).json({
+        success: false,
+        message: `Insufficient stock. Only ${variant.stock} items available.`,
+      });
+    }
+
+    // Calculate total amount
+    const totalAmount = variant.price * quantity;
+
+    // Create purchase with payment proof in PENDING status
     const purchase = await MerchandisePurchase.create({
       event: eventId,
       participant: req.user._id,
-      variant: selectedVariant,
+      merchandiseItem: {
+        itemId: merchItem._id.toString(),
+        itemName: merchItem.itemName,
+      },
+      variant: {
+        variantId: variant._id.toString(),
+        name: variant.name,
+        size: variant.size,
+        color: variant.color,
+        price: variant.price,
+      },
       quantity,
-      totalAmount: selectedVariant.price * quantity,
-      paymentProof: req.file ? {
+      totalAmount,
+      paymentProof: {
         filename: req.file.filename,
-        path: req.file.path,
+        path: req.file.path.replace(/\\/g, '/').split('/uploads/')[1] || req.file.path.replace(/\\/g, '/'),
         uploadedAt: new Date(),
-      } : null,
+      },
+      paymentStatus: 'pending',
+      claimType: 'payment',
     });
 
     res.status(201).json({
       success: true,
-      message: 'Purchase created. Awaiting payment approval.',
-      purchase,
+      message: 'Purchase order created successfully. Your payment proof has been submitted and is awaiting organizer approval.',
+      purchase: await purchase.populate([
+        { path: 'event', select: 'name organizer' },
+        { path: 'participant', select: 'firstName lastName email' },
+      ]),
     });
   } catch (error) {
+    console.error('Purchase error:', error);
     next(error);
   }
 };
 
-// @desc    Claim merchandise after registration (Participant)
-// @route   POST /api/merchandise/:registrationId/claim
-// @access  Private (Participant)
+// PARTICIPANT: Claim merchandise (for registered participants)
 exports.claimMerchandise = async (req, res, next) => {
   try {
     const { registrationId } = req.params;
-    const { itemId, variant, quantity } = req.body;
+    const { variantId, quantity } = req.body;
 
-    // Find registration and verify ownership
-    const registration = await Registration.findById(registrationId)
-      .populate('event');
+    console.log('=== CLAIM MERCHANDISE DEBUG ===');
+    console.log('Registration ID:', registrationId);
+    console.log('Variant ID received:', variantId);
+    console.log('Quantity:', quantity);
 
+    const registration = await Registration.findById(registrationId).populate('event');
     if (!registration) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Registration not found' 
-      });
+      return res.status(404).json({ success: false, message: 'Registration not found' });
     }
 
     if (registration.participant.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ 
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+    }
+
+    const event = registration.event;
+    console.log('Event ID:', event._id);
+    console.log('Event Type:', event.eventType);
+    console.log('Has merchandiseItems?', !!event.merchandiseItems);
+    console.log('merchandiseItems length:', event.merchandiseItems?.length);
+
+    // Check if merchandiseItems exists
+    if (!event.merchandiseItems || event.merchandiseItems.length === 0) {
+      console.log('ERROR: No merchandiseItems found');
+      return res.status(404).json({ success: false, message: 'No merchandise items found for this event' });
+    }
+
+    // Find the merchandise item and variant in merchandiseItems array
+    let merchItem = null;
+    let variant = null;
+
+    console.log('Searching for variant...');
+    for (const item of event.merchandiseItems) {
+      console.log(`Checking item: ${item.itemName} (ID: ${item._id})`);
+      console.log(`  Has variants? ${!!item.variants}, count: ${item.variants?.length}`);
+      
+      if (item.variants && item.variants.length > 0) {
+        item.variants.forEach(v => {
+          console.log(`  Variant: ${v.name}, ID: ${v._id}, Match: ${v._id.toString() === variantId}`);
+        });
+        
+        const foundVariant = item.variants.find(v => v._id.toString() === variantId);
+        if (foundVariant) {
+          merchItem = item;
+          variant = foundVariant;
+          console.log('✓ FOUND MATCH!', variant.name);
+          break;
+        }
+      }
+    }
+
+    if (!merchItem || !variant) {
+      console.log('ERROR: Variant not found after search');
+      console.log('All available variant IDs:');
+      event.merchandiseItems.forEach(item => {
+        item.variants?.forEach(v => console.log(`  - ${v._id.toString()}`));
+      });
+      return res.status(404).json({ 
         success: false, 
-        message: 'Not authorized to claim this merchandise' 
+        message: 'Merchandise item or variant not found',
+        debug: {
+          searchedFor: variantId,
+          availableVariants: event.merchandiseItems.map(item => ({
+            itemName: item.itemName,
+            variants: item.variants?.map(v => ({ id: v._id.toString(), name: v.name }))
+          }))
+        }
       });
     }
 
-    // Verify event is merchandise type
-    if (registration.event.eventType !== 'merchandise') {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'This event is not a merchandise event' 
-      });
+    if (variant.stock < quantity) {
+      return res.status(400).json({ success: false, message: 'Insufficient stock' });
     }
 
     // Check if already claimed
-    const existingPurchase = await MerchandisePurchase.findOne({
-      event: registration.event._id,
-      participant: req.user._id,
-      claimType: 'participant',
+    const existingClaim = await MerchandisePurchase.findOne({
+      registration: registrationId,
+      'variant.variantId': variantId,
+      paymentStatus: { $ne: 'rejected' },
     });
 
-    if (existingPurchase) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'You have already claimed merchandise for this event' 
+    if (existingClaim) {
+      return res.status(400).json({
+        success: false,
+        message: 'You have already claimed this merchandise',
       });
     }
 
-    // Find the merchandise item
-    const merchandiseItem = registration.event.merchandiseItems.find(
-      item => item.itemId === itemId
-    );
+    const totalAmount = variant.price * quantity;
 
-    if (!merchandiseItem) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Merchandise item not found' 
-      });
-    }
-
-    // Find the variant
-    const selectedVariant = merchandiseItem.variants.find(v => v.variantId === variant);
-    
-    if (!selectedVariant) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Variant not found' 
-      });
-    }
-
-    // Check stock
-    if (selectedVariant.stock < quantity) {
-      return res.status(400).json({ 
-        success: false, 
-        message: `Insufficient stock. Only ${selectedVariant.stock} items available.` 
-      });
-    }
-
-    // Check purchase limit
-    if (quantity > merchandiseItem.purchaseLimit) {
-      return res.status(400).json({ 
-        success: false, 
-        message: `Purchase limit is ${merchandiseItem.purchaseLimit} per participant` 
-      });
-    }
-
-    // Generate ticket ID and QR code
+    // Generate ticket immediately for claims
     const ticketId = generateTicketId();
     const qrData = {
       ticketId,
-      registrationId: registration._id.toString(),
-      eventId: registration.event._id.toString(),
+      eventId: event._id.toString(),
       participantId: req.user._id.toString(),
-      merchandiseItemId: itemId,
-      variant: selectedVariant.variantId,
-      quantity,
+      type: 'merchandise',
+      itemName: merchItem.itemName,
+      variant: variant.name,
     };
-    const qrCode = await generateQR(qrData);
 
-    // Create merchandise purchase record
+    const qrCodeDataURL = await QRCode.toDataURL(JSON.stringify(qrData), {
+      errorCorrectionLevel: 'H',
+      type: 'image/png',
+      width: 300,
+      margin: 1,
+    });
+
+    const qrCodeBuffer = await QRCode.toBuffer(JSON.stringify(qrData), {
+      errorCorrectionLevel: 'H',
+      type: 'png',
+      width: 300,
+      margin: 1,
+    });
+
+    // Create purchase (auto-approved for claims)
     const purchase = await MerchandisePurchase.create({
-      event: registration.event._id,
+      event: event._id,
       participant: req.user._id,
       registration: registrationId,
       merchandiseItem: {
-        itemId: merchandiseItem.itemId,
-        itemName: merchandiseItem.itemName,
+        itemId: merchItem._id.toString(),
+        itemName: merchItem.itemName,
       },
       variant: {
-        variantId: selectedVariant.variantId,
-        name: selectedVariant.name,
-        size: selectedVariant.size,
-        color: selectedVariant.color,
-        price: selectedVariant.price,
+        variantId: variant._id.toString(),
+        name: variant.name,
+        size: variant.size,
+        color: variant.color,
+        price: variant.price,
       },
       quantity,
-      totalAmount: selectedVariant.price * quantity,
-      paymentStatus: 'approved', // Auto-approved for claim
-      ticketId,
-      qrCode,
+      totalAmount,
+      paymentStatus: 'approved',
       claimType: 'participant',
       claimedAt: new Date(),
+      ticketId,
+      qrCode: qrCodeDataURL,
     });
 
     // Decrement stock
-    const itemIndex = registration.event.merchandiseItems.findIndex(
-      item => item.itemId === itemId
-    );
-    const variantIndex = registration.event.merchandiseItems[itemIndex].variants.findIndex(
-      v => v.variantId === variant
-    );
-    
-    registration.event.merchandiseItems[itemIndex].variants[variantIndex].stock -= quantity;
-    registration.event.currentRegistrations += 1;
-    registration.event.totalRevenue += purchase.totalAmount;
-    await registration.event.save();
+    variant.stock -= quantity;
+    await event.save();
 
-    // Populate for email
-    await purchase.populate('participant', 'firstName lastName email');
-
-    // Send confirmation email
+    // Send email with QR code
     await sendEmail({
-      to: purchase.participant.email,
-      subject: `Merchandise Claimed - ${registration.event.name}`,
-      html: merchandiseClaimedEmail({
-        participantName: `${purchase.participant.firstName} ${purchase.participant.lastName}`,
-        eventName: registration.event.name,
-        itemName: merchandiseItem.itemName,
-        variant: selectedVariant.name,
+      to: req.user.email,
+      subject: `Merchandise Ticket - ${event.name}`,
+      html: merchandiseTicketEmail({
+        participantName: `${req.user.firstName} ${req.user.lastName}`,
+        eventName: event.name,
+        itemName: merchItem.itemName,
+        variant: variant.name,
         quantity,
         ticketId,
-        qrCode,
+        qrCode: 'cid:qrcode',
       }),
+      attachments: [
+        {
+          filename: 'qrcode.png',
+          content: qrCodeBuffer,
+          cid: 'qrcode',
+        },
+      ],
     });
 
+    console.log('✓ Claim successful!');
     res.status(201).json({
       success: true,
-      message: 'Merchandise claimed successfully! Check your email for the ticket.',
-      purchase,
+      message: 'Merchandise claimed successfully',
+      purchase: await purchase.populate([
+        { path: 'event', select: 'name' },
+        { path: 'participant', select: 'firstName lastName email' },
+      ]),
     });
   } catch (error) {
+    console.error('Claim error:', error);
     next(error);
   }
 };
 
-// @desc    Issue merchandise to participant (Organizer)
-// @route   POST /api/merchandise/:eventId/issue
-// @access  Private (Organizer)
+// Continue with the rest of the functions (issueMerchandise, getMyPurchases, etc.)
+// They remain the same as in the FIXED version...
+
 exports.issueMerchandise = async (req, res, next) => {
   try {
     const { eventId } = req.params;
-    const { participantId, itemId, variant, quantity } = req.body;
+    const { participantId, variantId, quantity } = req.body;
 
-    // Find event and verify ownership
     const event = await Event.findById(eventId);
-
     if (!event) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Event not found' 
-      });
+      return res.status(404).json({ success: false, message: 'Event not found' });
     }
 
     if (event.organizer.toString() !== req.organizer._id.toString()) {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'Not authorized to issue merchandise for this event' 
-      });
+      return res.status(403).json({ success: false, message: 'Not authorized' });
     }
 
-    if (event.eventType !== 'merchandise') {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'This event is not a merchandise event' 
-      });
+    // Find the merchandise item and variant in merchandiseItems array
+    let merchItem = null;
+    let variant = null;
+
+    for (const item of event.merchandiseItems) {
+      const foundVariant = item.variants.find(v => v._id.toString() === variantId);
+      if (foundVariant) {
+        merchItem = item;
+        variant = foundVariant;
+        break;
+      }
     }
 
-    // Verify participant has a registration
-    const registration = await Registration.findOne({
-      event: eventId,
-      participant: participantId,
-      status: 'confirmed',
-    }).populate('participant', 'firstName lastName email');
-
-    if (!registration) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Participant registration not found or not confirmed' 
-      });
+    if (!merchItem || !variant) {
+      return res.status(404).json({ success: false, message: 'Merchandise item or variant not found' });
     }
 
-    // Check if already issued
-    const existingPurchase = await MerchandisePurchase.findOne({
-      event: eventId,
-      participant: participantId,
-    });
-
-    if (existingPurchase) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Merchandise already issued to this participant' 
-      });
+    if (variant.stock < quantity) {
+      return res.status(400).json({ success: false, message: 'Insufficient stock' });
     }
 
-    // Find the merchandise item
-    const merchandiseItem = event.merchandiseItems.find(
-      item => item.itemId === itemId
-    );
-
-    if (!merchandiseItem) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Merchandise item not found' 
-      });
+    const User = require('../models/User');
+    const participant = await User.findById(participantId);
+    if (!participant) {
+      return res.status(404).json({ success: false, message: 'Participant not found' });
     }
 
-    // Find the variant
-    const selectedVariant = merchandiseItem.variants.find(v => v.variantId === variant);
-    
-    if (!selectedVariant) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Variant not found' 
-      });
-    }
+    const totalAmount = variant.price * quantity;
 
-    // Check stock
-    if (selectedVariant.stock < quantity) {
-      return res.status(400).json({ 
-        success: false, 
-        message: `Insufficient stock. Only ${selectedVariant.stock} items available.` 
-      });
-    }
-
-    // Generate ticket ID and QR code
+    // Generate ticket
     const ticketId = generateTicketId();
     const qrData = {
       ticketId,
-      registrationId: registration._id.toString(),
       eventId: event._id.toString(),
-      participantId: participantId,
-      merchandiseItemId: itemId,
-      variant: selectedVariant.variantId,
-      quantity,
-      issuedBy: 'organizer',
+      participantId: participant._id.toString(),
+      type: 'merchandise',
+      itemName: merchItem.itemName,
+      variant: variant.name,
     };
-    const qrCode = await generateQR(qrData);
 
-    // Create merchandise purchase record
+    const qrCodeDataURL = await QRCode.toDataURL(JSON.stringify(qrData), {
+      errorCorrectionLevel: 'H',
+      type: 'image/png',
+      width: 300,
+      margin: 1,
+    });
+
+    const qrCodeBuffer = await QRCode.toBuffer(JSON.stringify(qrData), {
+      errorCorrectionLevel: 'H',
+      type: 'png',
+      width: 300,
+      margin: 1,
+    });
+
+    // Create purchase (issued by organizer)
     const purchase = await MerchandisePurchase.create({
-      event: eventId,
+      event: event._id,
       participant: participantId,
-      registration: registration._id,
       merchandiseItem: {
-        itemId: merchandiseItem.itemId,
-        itemName: merchandiseItem.itemName,
+        itemId: merchItem._id.toString(),
+        itemName: merchItem.itemName,
       },
       variant: {
-        variantId: selectedVariant.variantId,
-        name: selectedVariant.name,
-        size: selectedVariant.size,
-        color: selectedVariant.color,
-        price: selectedVariant.price,
+        variantId: variant._id.toString(),
+        name: variant.name,
+        size: variant.size,
+        color: variant.color,
+        price: variant.price,
       },
       quantity,
-      totalAmount: selectedVariant.price * quantity,
+      totalAmount,
       paymentStatus: 'approved',
-      ticketId,
-      qrCode,
       claimType: 'organizer',
       issuedBy: req.organizer._id,
       issuedAt: new Date(),
+      ticketId,
+      qrCode: qrCodeDataURL,
     });
 
     // Decrement stock
-    const itemIndex = event.merchandiseItems.findIndex(
-      item => item.itemId === itemId
-    );
-    const variantIndex = event.merchandiseItems[itemIndex].variants.findIndex(
-      v => v.variantId === variant
-    );
-    
-    event.merchandiseItems[itemIndex].variants[variantIndex].stock -= quantity;
-    event.currentRegistrations += 1;
-    event.totalRevenue += purchase.totalAmount;
+    variant.stock -= quantity;
     await event.save();
 
-    // Send confirmation email
+    // Send email
     await sendEmail({
-      to: registration.participant.email,
+      to: participant.email,
       subject: `Merchandise Issued - ${event.name}`,
-      html: merchandiseClaimedEmail({
-        participantName: `${registration.participant.firstName} ${registration.participant.lastName}`,
+      html: merchandiseTicketEmail({
+        participantName: `${participant.firstName} ${participant.lastName}`,
         eventName: event.name,
-        itemName: merchandiseItem.itemName,
-        variant: selectedVariant.name,
+        itemName: merchItem.itemName,
+        variant: variant.name,
         quantity,
         ticketId,
-        qrCode,
-        issuedByOrganizer: true,
+        qrCode: 'cid:qrcode',
       }),
+      attachments: [
+        {
+          filename: 'qrcode.png',
+          content: qrCodeBuffer,
+          cid: 'qrcode',
+        },
+      ],
     });
 
     res.status(201).json({
       success: true,
-      message: 'Merchandise issued successfully!',
-      purchase,
+      message: 'Merchandise issued successfully',
+      purchase: await purchase.populate([
+        { path: 'event', select: 'name' },
+        { path: 'participant', select: 'firstName lastName email' },
+      ]),
     });
   } catch (error) {
     next(error);
   }
 };
 
-// @desc    Get my purchases
-// @route   GET /api/merchandise/my-purchases
-// @access  Private (Participant)
 exports.getMyPurchases = async (req, res, next) => {
   try {
     const purchases = await MerchandisePurchase.find({ participant: req.user._id })
-      .populate('event', 'name merchandiseItems')
+      .populate('event', 'name eventStartDate organizer')
+      .populate({
+        path: 'event',
+        populate: { path: 'organizer', select: 'name' },
+      })
       .sort({ purchasedAt: -1 });
 
     res.json({ success: true, purchases });
@@ -395,35 +448,30 @@ exports.getMyPurchases = async (req, res, next) => {
   }
 };
 
-// @desc    Get pending approvals (for payment proof uploads)
-// @route   GET /api/merchandise/pending-approvals
-// @access  Private (Organizer)
 exports.getPendingApprovals = async (req, res, next) => {
   try {
-    const events = await Event.find({ organizer: req.organizer._id, eventType: 'merchandise' });
-    const eventIds = events.map(e => e._id);
-
     const purchases = await MerchandisePurchase.find({
-      event: { $in: eventIds },
       paymentStatus: 'pending',
+      claimType: 'payment',
     })
-      .populate('participant', 'firstName lastName email')
-      .populate('event', 'name')
+      .populate('event', 'name organizer')
+      .populate('participant', 'firstName lastName email contactNumber')
       .sort({ purchasedAt: -1 });
 
-    res.json({ success: true, purchases });
+    const myPurchases = purchases.filter(
+      p => p.event && p.event.organizer.toString() === req.organizer._id.toString()
+    );
+
+    res.json({ success: true, purchases: myPurchases });
   } catch (error) {
     next(error);
   }
 };
 
-// @desc    Get event purchases (for organizer to see who has claimed/been issued merch)
-// @route   GET /api/merchandise/event/:eventId
-// @access  Private (Organizer)
 exports.getEventPurchases = async (req, res, next) => {
   try {
     const { eventId } = req.params;
-    
+
     const event = await Event.findById(eventId);
     if (!event) {
       return res.status(404).json({ success: false, message: 'Event not found' });
@@ -434,8 +482,8 @@ exports.getEventPurchases = async (req, res, next) => {
     }
 
     const purchases = await MerchandisePurchase.find({ event: eventId })
-      .populate('participant', 'firstName lastName email contactNumber participantType')
-      .sort({ createdAt: -1 });
+      .populate('participant', 'firstName lastName email contactNumber')
+      .sort({ purchasedAt: -1 });
 
     res.json({ success: true, purchases });
   } catch (error) {
@@ -443,98 +491,204 @@ exports.getEventPurchases = async (req, res, next) => {
   }
 };
 
-// @desc    Approve purchase (for payment proof uploads)
-// @route   POST /api/merchandise/:purchaseId/approve
-// @access  Private (Organizer)
 exports.approvePurchase = async (req, res, next) => {
   try {
-    const purchase = await MerchandisePurchase.findById(req.params.purchaseId)
+    const { purchaseId } = req.params;
+    console.log('\n=== APPROVE PURCHASE DEBUG ===');
+    console.log('1. purchaseId:', purchaseId);
+    console.log('2. organizer:', req.organizer?._id);
+
+    const purchase = await MerchandisePurchase.findById(purchaseId)
       .populate('event')
       .populate('participant', 'firstName lastName email');
 
+    console.log('3. purchase found:', !!purchase);
     if (!purchase) {
       return res.status(404).json({ success: false, message: 'Purchase not found' });
     }
 
-    // Generate ticket
-    const ticketId = generateTicketId();
-    const qrData = {
-      ticketId,
-      purchaseId: purchase._id.toString(),
-      eventId: purchase.event._id.toString(),
-      participantId: purchase.participant._id.toString(),
-    };
-    const qrCode = await generateQR(qrData);
+    console.log('4. paymentStatus:', purchase.paymentStatus);
+    console.log('5. event organizer:', purchase.event?.organizer?.toString());
+    console.log('6. req organizer:', req.organizer?._id?.toString());
 
-    purchase.paymentStatus = 'approved';
-    purchase.ticketId = ticketId;
-    purchase.qrCode = qrCode;
-    purchase.reviewedBy = req.organizer._id;
-    purchase.reviewedAt = new Date();
-    await purchase.save();
-
-    // Decrement stock
     const event = purchase.event;
-    const variantIndex = event.merchandiseDetails.variants.findIndex(v => v.name === purchase.variant.name);
-    if (variantIndex !== -1) {
-      event.merchandiseDetails.variants[variantIndex].stock -= purchase.quantity;
-      event.currentRegistrations += 1;
-      event.totalRevenue += purchase.totalAmount;
-      await event.save();
+    if (event.organizer.toString() !== req.organizer._id.toString()) {
+      console.log('7. FAILED: Not authorized');
+      return res.status(403).json({ success: false, message: 'Not authorized' });
     }
 
-    // Send email
-    await sendEmail({
-      to: purchase.participant.email,
-      subject: `Payment Approved - ${event.name}`,
-      html: merchandiseApprovalEmail({
-        participantName: `${purchase.participant.firstName} ${purchase.participant.lastName}`,
-        eventName: event.name,
-        itemName: event.merchandiseDetails.itemName,
-        variant: purchase.variant.name,
-        ticketId,
-        qrCode,
-      }),
-    });
+    if (purchase.paymentStatus !== 'pending') {
+      console.log('7. FAILED: Already processed');
+      return res.status(400).json({
+        success: false,
+        message: 'Purchase has already been processed',
+      });
+    }
 
-    res.json({ success: true, message: 'Purchase approved', purchase });
+    console.log('7. Generating ticket...');
+    const ticketId = generateTicketId();
+    console.log('8. ticketId:', ticketId);
+
+    const qrData = {
+      ticketId,
+      eventId: event._id.toString(),
+      participantId: purchase.participant._id.toString(),
+      type: 'merchandise',
+      itemName: purchase.merchandiseItem.itemName,
+      variant: purchase.variant.name,
+    };
+
+    console.log('9. Generating QR code...');
+    const qrCodeDataURL = await QRCode.toDataURL(JSON.stringify(qrData), {
+      errorCorrectionLevel: 'H',
+      type: 'image/png',
+      width: 300,
+      margin: 1,
+    });
+    console.log('10. QR dataURL generated:', !!qrCodeDataURL);
+
+    const qrCodeBuffer = await QRCode.toBuffer(JSON.stringify(qrData), {
+      errorCorrectionLevel: 'H',
+      type: 'png',
+      width: 300,
+      margin: 1,
+    });
+    console.log('11. QR buffer generated:', !!qrCodeBuffer);
+
+    console.log('12. Saving purchase...');
+    purchase.paymentStatus = 'approved';
+    purchase.reviewedBy = req.organizer._id;
+    purchase.reviewedAt = new Date();
+    purchase.ticketId = ticketId;
+    purchase.qrCode = qrCodeDataURL;
+    await purchase.save();
+    console.log('13. Purchase saved OK');
+
+    // Decrement stock - inline search across all merchandiseItems
+    let stockDecremented = false;
+    for (const item of (event.merchandiseItems || [])) {
+      const sv = item.variants.find(
+        v => v._id.toString() === purchase.variant.variantId || v.variantId === purchase.variant.variantId
+      );
+      if (sv) {
+        sv.stock = Math.max(0, sv.stock - purchase.quantity);
+        await event.save();
+        console.log('14. Stock decremented OK, new stock:', sv.stock);
+        stockDecremented = true;
+        break;
+      }
+    }
+    if (!stockDecremented) {
+      console.log('14. WARNING: variant not found for stock decrement, variantId:', purchase.variant.variantId);
+    }
+
+    // Send email (non-blocking)
+    console.log('15. Sending email to:', purchase.participant.email);
+    try {
+      await sendEmail({
+        to: purchase.participant.email,
+        subject: `Payment Approved - ${event.name} Merchandise`,
+        html: merchandiseTicketEmail({
+          participantName: `${purchase.participant.firstName} ${purchase.participant.lastName}`,
+          eventName: event.name,
+          itemName: purchase.merchandiseItem.itemName,
+          variant: purchase.variant.name,
+          quantity: purchase.quantity,
+          ticketId,
+          qrCode: 'cid:qrcode',
+        }),
+        attachments: [{ filename: 'qrcode.png', content: qrCodeBuffer, cid: 'qrcode' }],
+      });
+      console.log('16. Email sent OK');
+    } catch (emailError) {
+      console.error('16. Email FAILED (non-fatal):', emailError.message);
+    }
+
+    console.log('17. Sending success response');
+    res.json({
+      success: true,
+      message: 'Payment approved and ticket generated successfully',
+      purchase,
+    });
   } catch (error) {
+    console.error('=== APPROVE PURCHASE CRASHED ===');
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
     next(error);
   }
 };
 
-// @desc    Reject purchase (for payment proof uploads)
-// @route   POST /api/merchandise/:purchaseId/reject
-// @access  Private (Organizer)
 exports.rejectPurchase = async (req, res, next) => {
   try {
+    const { purchaseId } = req.params;
     const { reason } = req.body;
-    const purchase = await MerchandisePurchase.findById(req.params.purchaseId)
-      .populate('event')
+
+    if (!reason || reason.trim().length < 5) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide a reason for rejection (minimum 5 characters)',
+      });
+    }
+
+    const purchase = await MerchandisePurchase.findById(purchaseId)
+      .populate('event', 'name organizer')
       .populate('participant', 'firstName lastName email');
 
     if (!purchase) {
       return res.status(404).json({ success: false, message: 'Purchase not found' });
     }
 
+    if (purchase.event.organizer.toString() !== req.organizer._id.toString()) {
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+    }
+
+    if (purchase.paymentStatus !== 'pending') {
+      return res.status(400).json({
+        success: false,
+        message: 'Purchase has already been processed',
+      });
+    }
+
     purchase.paymentStatus = 'rejected';
-    purchase.rejectionReason = reason;
     purchase.reviewedBy = req.organizer._id;
     purchase.reviewedAt = new Date();
+    purchase.rejectionReason = reason.trim();
     await purchase.save();
 
-    // Send email
     await sendEmail({
       to: purchase.participant.email,
-      subject: `Payment Rejected - ${purchase.event.name}`,
-      html: merchandiseRejectionEmail({
-        participantName: `${purchase.participant.firstName} ${purchase.participant.lastName}`,
-        itemName: purchase.event.merchandiseDetails.itemName,
-        reason,
-      }),
+      subject: `Payment Rejected - ${purchase.event.name} Merchandise`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #dc2626;">Payment Rejected</h2>
+          <p>Dear ${purchase.participant.firstName},</p>
+          <p>Your merchandise payment for <strong>${purchase.event.name}</strong> has been rejected by the organizer.</p>
+          
+          <div style="background-color: #fee2e2; border-left: 4px solid #dc2626; padding: 16px; margin: 20px 0;">
+            <p style="margin: 0;"><strong>Item:</strong> ${purchase.merchandiseItem.itemName}</p>
+            <p style="margin: 8px 0 0 0;"><strong>Variant:</strong> ${purchase.variant.name}</p>
+            <p style="margin: 8px 0 0 0;"><strong>Quantity:</strong> ${purchase.quantity}</p>
+            <p style="margin: 8px 0 0 0;"><strong>Amount:</strong> ₹${purchase.totalAmount}</p>
+          </div>
+          
+          <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 16px; margin: 20px 0;">
+            <p style="margin: 0;"><strong>Rejection Reason:</strong></p>
+            <p style="margin: 8px 0 0 0;">${reason}</p>
+          </div>
+          
+          <p>Please review the rejection reason and contact the event organizers for clarification or submit a new payment proof with the correct information.</p>
+          
+          <p>Best regards,<br>Event Management Team</p>
+        </div>
+      `,
     });
 
-    res.json({ success: true, message: 'Purchase rejected' });
+    res.json({
+      success: true,
+      message: 'Payment rejected successfully',
+      purchase,
+    });
   } catch (error) {
     next(error);
   }

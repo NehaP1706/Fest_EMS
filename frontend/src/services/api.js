@@ -126,17 +126,19 @@ export const adminAPI = {
 };
 
 export const merchandiseAPI = {
-  // Existing endpoints
-  purchase: (eventId, formData) => api.post(`/merchandise/${eventId}/purchase`, formData),
+  purchase: (eventId, formData) =>
+    api.post(`/merchandise/${eventId}/purchase`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    }),
+
   getMyPurchases: () => api.get('/merchandise/my-purchases'),
   getPendingApprovals: () => api.get('/merchandise/pending-approvals'),
-  approvePurchase: (purchaseId) => api.post(`/merchandise/${purchaseId}/approve`),
-  rejectPurchase: (purchaseId, data) => api.post(`/merchandise/${purchaseId}/reject`, data),
-  
-  // NEW: Claim and Issue endpoints
-  claimMerchandise: (registrationId, data) => api.post(`/merchandise/${registrationId}/claim`, data),
-  issueMerchandise: (eventId, data) => api.post(`/merchandise/${eventId}/issue`, data),
+  approve: (purchaseId) => api.post(`/merchandise/${purchaseId}/approve`),
+  reject: (purchaseId, data) => api.post(`/merchandise/${purchaseId}/reject`, data),
   getEventPurchases: (eventId) => api.get(`/merchandise/event/${eventId}`),
+  claimMerchandise: (registrationId, data) => api.post(`/merchandise/claim/${registrationId}`, data),
 };
 
 // Discussion APIs

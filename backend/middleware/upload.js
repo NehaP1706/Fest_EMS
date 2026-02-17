@@ -2,75 +2,50 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-// Ensure upload directory exists
-const uploadDir = path.join(__dirname, '../uploads');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
+// Ensure upload directories exist
+const uploadDirs = [
+  'uploads/payment-proofs',
+  'uploads/registration-files',
+  'uploads/team-files',
+];
 
-// Configure storage
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    let folder = 'others';
-    
-    // Determine folder based on fieldname
-    if (file.fieldname === 'paymentProof') {
-      folder = 'payment-proofs';
-    } else if (file.fieldname === 'registrationFile') {
-      folder = 'registration-files';
-    } else if (file.fieldname === 'teamFile') {
-      folder = 'team-files';
-    }
-    
-    const destPath = path.join(uploadDir, folder);
-    
-    // Create folder if it doesn't exist
-    if (!fs.existsSync(destPath)) {
-      fs.mkdirSync(destPath, { recursive: true });
-    }
-    
-    cb(null, destPath);
-  },
-  filename: function (req, file, cb) {
-    // Generate unique filename
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    const ext = path.extname(file.originalname);
-    const basename = path.basename(file.originalname, ext);
-    cb(null, `${basename}-${uniqueSuffix}${ext}`);
+uploadDirs.forEach(dir => {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
   }
 });
 
-// File filter
+// Configure storage for payment proofs
+const paymentProofStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/payment-proofs'); // Relative path, no leading slash
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, file.originalname.replace(/\s+/g, '_') + '-' + uniqueSuffix + path.extname(file.originalname));
+  },
+});
+
+// File filter for images and PDFs only
 const fileFilter = (req, file, cb) => {
-  // Allowed file types
-  const allowedTypes = /jpeg|jpg|png|pdf|doc|docx/;
+  const allowedTypes = /jpeg|jpg|png|pdf/;
   const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
   const mimetype = allowedTypes.test(file.mimetype);
 
-  if (extname && mimetype) {
+  if (mimetype && extname) {
     return cb(null, true);
   } else {
-    cb(new Error('Invalid file type. Only JPEG, PNG, PDF, DOC, and DOCX files are allowed.'));
+    cb(new Error('Only images (JPEG, PNG) and PDF files are allowed'));
   }
 };
 
-// Create multer instance
-const upload = multer({
-  storage: storage,
-  limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB max file size
-  },
+// Export middleware
+const uploadPaymentProof = multer({
+  storage: paymentProofStorage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB max
   fileFilter: fileFilter,
-});
-
-// Specific upload configurations
-const uploadPaymentProof = upload.single('paymentProof');
-const uploadRegistrationFile = upload.single('registrationFile');
-const uploadMultiple = upload.array('files', 5); // Max 5 files
+}).single('paymentProof');
 
 module.exports = {
-  upload,
   uploadPaymentProof,
-  uploadRegistrationFile,
-  uploadMultiple,
 };
