@@ -1,0 +1,9 @@
+Frontend URL: https://fest-ems.vercel.app/
+Backend API URL: https://fest-ems.onrender.com/api
+Database: MongoDB Atlas (connection via environment variable)
+
+Notes:
+- Frontend deployed on Vercel (static hosting)
+- Backend deployed on Render (Node.js)
+- Real-time features via Socket.IO
+- File uploads stored on backend server
