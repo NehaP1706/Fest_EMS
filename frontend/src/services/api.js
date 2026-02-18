@@ -153,10 +153,10 @@ export const discussionAPI = {
   getUnreadCount: (eventId) => api.get(`/discussions/${eventId}/unread-count`),
 };
 
-// Feedback APIs
 export const feedbackAPI = {
   submit: (eventId, data) => api.post(`/feedback/${eventId}`, data),
   getEventFeedback: (eventId) => api.get(`/feedback/${eventId}`),
+  getMyFeedback: (eventId) => api.get(`/feedback/${eventId}/my-feedback`), 
 };
 
 // Attendance APIs

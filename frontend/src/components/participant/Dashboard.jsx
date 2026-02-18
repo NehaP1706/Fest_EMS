@@ -4,7 +4,8 @@ import { registrationAPI, merchandiseAPI } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import Navbar from '../common/Navbar';
 import Loader from '../common/Loader';
-import { FiCalendar, FiClock, FiMapPin, FiPackage, FiCheckCircle, FiXCircle } from 'react-icons/fi';
+import { FiCalendar, FiClock, FiMapPin, FiPackage, FiCheckCircle, FiXCircle, FiStar, FiX } from 'react-icons/fi';
+import FeedbackForm from '../shared/FeedbackForm';
 
 const ParticipantDashboard = () => {
   const { user } = useAuth();
@@ -12,6 +13,10 @@ const ParticipantDashboard = () => {
   const [purchases, setPurchases] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('upcoming');
+  
+  // Feedback modal state
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [selectedEventForFeedback, setSelectedEventForFeedback] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -233,6 +238,21 @@ const ParticipantDashboard = () => {
                                 </span>
                               )}
                             </div>
+                            
+                            {/* Feedback Button - Show if attended and event ended */}
+                            {registration.attended && 
+                             new Date() > new Date(registration.event.eventEndDate) && (
+                              <button
+                                onClick={() => {
+                                  setSelectedEventForFeedback(registration.event);
+                                  setShowFeedbackModal(true);
+                                }}
+                                className="mt-3 w-full flex items-center justify-center gap-2 bg-yellow-50 text-yellow-700 px-4 py-2 rounded-lg hover:bg-yellow-100 transition-colors font-medium border border-yellow-200"
+                              >
+                                <FiStar size={16} />
+                                Leave Feedback
+                              </button>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -319,6 +339,38 @@ const ParticipantDashboard = () => {
           </>
         )}
       </div>
+      
+      {/* Feedback Modal */}
+      {showFeedbackModal && selectedEventForFeedback && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full p-6 relative">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-900">Leave Feedback</h2>
+              <button
+                onClick={() => {
+                  setShowFeedbackModal(false);
+                  setSelectedEventForFeedback(null);
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <FiX size={24} />
+              </button>
+            </div>
+            <p className="text-sm text-gray-600 mb-4">
+              How was your experience at <strong>{selectedEventForFeedback.name}</strong>?
+            </p>
+            <FeedbackForm
+              eventId={selectedEventForFeedback._id}
+              onClose={() => {
+                setShowFeedbackModal(false);
+                setSelectedEventForFeedback(null);
+                // Optionally refresh registrations
+                fetchData();
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

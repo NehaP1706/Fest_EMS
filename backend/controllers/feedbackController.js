@@ -84,3 +84,22 @@ exports.getEventFeedback = async (req, res, next) => {
     next(error);
   }
 };
+
+// NEW: Check if user already submitted feedback
+exports.getMyFeedback = async (req, res, next) => {
+  try {
+    const { eventId } = req.params;
+    
+    const feedback = await Feedback.findOne({
+      event: eventId,
+      participant: req.user._id,
+    });
+
+    res.json({
+      success: true,
+      feedback,
+    });
+  } catch (error) {
+    next(error);
+  }
+};

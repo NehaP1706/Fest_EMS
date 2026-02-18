@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { eventAPI, registrationAPI, merchandiseAPI, attendanceAPI } from '../../services/api';
 import Navbar from '../common/Navbar';
 import Loader from '../common/Loader';
-import { FiEdit, FiTrash2, FiDownload, FiUsers, FiDollarSign, FiCheckCircle, FiClock, FiCalendar } from 'react-icons/fi';
+import { FiEdit, FiTrash2, FiDownload, FiUsers, FiDollarSign, FiCheckCircle, FiClock, FiCalendar, FiStar } from 'react-icons/fi';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import DiscussionForum from '../shared/DiscussionForum';
 
@@ -226,6 +226,15 @@ const OrganizerEventDetail = () => {
               <button onClick={handleEdit} className="btn-secondary flex items-center">
                 <FiEdit className="mr-2" />
                 Edit
+              </button>
+              {/* Feedback Button */}
+              <button
+                onClick={() => navigate(`/organizer/events/${id}/feedback`)}
+                className="flex items-center gap-2 px-4 py-2 bg-yellow-50 text-yellow-700 rounded-lg hover:bg-yellow-100 transition-colors border border-yellow-200 font-medium"
+                title="View Feedback"
+              >
+                <FiStar size={16} />
+                Feedback
               </button>
               {event.status === 'draft' && (
                 <button onClick={handleDelete} className="btn-danger flex items-center">
