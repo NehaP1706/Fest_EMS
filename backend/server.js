@@ -94,9 +94,13 @@ app.use('/api/discussions', discussionRoutes);
 app.use('/api/feedback', feedbackRoutes);
 app.use('/api/attendance', attendanceRoutes);
 
-// Health check
 app.get('/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+  res.json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV,
+    frontendUrl: process.env.FRONTEND_URL,
+  });
 });
 
 // app.use(express.static(path.join(__dirname, 'dist')));
