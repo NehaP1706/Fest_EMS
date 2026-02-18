@@ -51,7 +51,7 @@ app.use(helmet({
     directives: {
       ...helmet.contentSecurityPolicy.getDefaultDirectives(),
       "script-src": ["'self'", "'unsafe-inline'"], // Allows React/Vite scripts to run
-      "connect-src": ["'self'", "https://fest-ems.onrender.com", "wss://fest-ems.onrender.com"], // Required for API and WebSockets
+      "connect-src": ["'self'", "https://fest-ems.onrender.com", "wss://fest-ems.onrender.com", process.env.FRONTEND_URL], // Required for API and WebSockets
       "img-src": ["'self'", "data:", "blob:"], 
       "media-src": ["'self'", "blob:"],  
     },
@@ -85,10 +85,10 @@ app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
-app.use(express.static(path.join(__dirname, 'dist')));
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
-});
+// app.use(express.static(path.join(__dirname, 'dist')));
+// app.get('*', (req, res) => {
+//   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+// });
 
 // Error handler (must be last)
 app.use(errorHandler);
