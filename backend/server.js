@@ -31,6 +31,15 @@ const attendanceRoutes = require('./routes/attendance');
 const app = express();
 const server = http.createServer(app);
 
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  'https://fest-ems.vercel.app',
+  'http://localhost:5173',
+  'http://localhost:3000',
+].filter(Boolean); // Remove undefined values
+
+console.log('🌍 Allowed CORS origins:', allowedOrigins);
+
 // Socket.IO setup for real-time features
 const io = socketIo(server, {
   cors: {
