@@ -60,6 +60,20 @@ exports.purchaseMerchandise = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Merchandise item or variant not found' });
     }
 
+    // Check if participant already has a pending or approved purchase for this event
+    const existingPurchase = await MerchandisePurchase.findOne({
+      event: eventId,
+      participant: req.user._id,
+      paymentStatus: { $ne: 'rejected' },
+    });
+
+    if (existingPurchase) {
+      return res.status(400).json({
+        success: false,
+        message: 'You have already submitted a purchase request for this event. Only 1 purchase per person is allowed.',
+      });
+    }
+
     // Check stock availability (don't decrement yet - wait for approval)
     if (variant.stock < quantity) {
       return res.status(400).json({

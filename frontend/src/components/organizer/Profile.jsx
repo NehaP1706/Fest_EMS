@@ -3,7 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { organizerAPI } from '../../services/api';
 import Navbar from '../common/Navbar';
 import Loader from '../common/Loader';
-import { FiSave, FiEdit, FiLock, FiAlertCircle } from 'react-icons/fi';
+import { FiSave, FiEdit, FiLock, FiAlertCircle, FiClock } from 'react-icons/fi';
 
 const OrganizerProfile = () => {
   const { user } = useAuth();
@@ -312,58 +312,118 @@ const OrganizerProfile = () => {
         </div>
 
         {/* Reset Request History */}
-        {resetRequests.length > 0 && (
-          <div className="card">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b">
-              Reset Request History
+        <div className="card">
+          <div className="flex items-center justify-between mb-4 pb-2 border-b">
+            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+              <FiClock className="text-gray-700" />
+              Password Reset History
             </h2>
-            <div className="space-y-3">
-              {resetRequests.slice(0, 5).map((request) => (
-                <div
-                  key={request._id}
-                  className={`p-4 border-2 rounded-lg ${getStatusColor(request.status)}`}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <p className="text-sm font-medium mb-1">
-                        Requested: {new Date(request.requestedAt).toLocaleDateString('en-US', {
-                          year: 'numeric',
-                          month: 'short',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
+            <span className="text-xs text-gray-500">{resetRequests.length} request{resetRequests.length !== 1 ? 's' : ''}</span>
+          </div>
+
+          {resetRequests.length === 0 ? (
+            <div className="text-center py-10">
+              <FiClock className="mx-auto text-4xl text-gray-300 mb-3" />
+              <p className="text-sm text-gray-500">No password reset requests yet.</p>
+              <p className="text-xs text-gray-400 mt-1">Your request history will appear here.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {resetRequests.map((request, index) => (
+                <div key={request._id} className="relative pl-6">
+                  {/* Timeline line */}
+                  {index < resetRequests.length - 1 && (
+                    <div className="absolute left-[9px] top-6 bottom-0 w-px bg-gray-200" />
+                  )}
+                  {/* Timeline dot */}
+                  <div className={`absolute left-0 top-1.5 w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center
+                    ${request.status === 'approved' ? 'bg-green-100 border-green-500' :
+                      request.status === 'rejected' ? 'bg-red-100 border-red-500' :
+                      'bg-yellow-100 border-yellow-500'}`}
+                  >
+                    <div className={`w-2 h-2 rounded-full
+                      ${request.status === 'approved' ? 'bg-green-500' :
+                        request.status === 'rejected' ? 'bg-red-500' :
+                        'bg-yellow-500'}`}
+                    />
+                  </div>
+
+                  {/* Card */}
+                  <div className={`rounded-lg border p-4 ${
+                    request.status === 'approved' ? 'bg-green-50 border-green-200' :
+                    request.status === 'rejected' ? 'bg-red-50 border-red-200' :
+                    'bg-yellow-50 border-yellow-200'
+                  }`}>
+                    {/* Header row */}
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div>
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold capitalize
+                          ${request.status === 'approved' ? 'bg-green-100 text-green-800' :
+                            request.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                            'bg-yellow-100 text-yellow-800'}`}>
+                          {request.status === 'approved' ? '✓ Approved' :
+                           request.status === 'rejected' ? '✗ Rejected' :
+                           '⏳ Pending'}
+                        </span>
+                      </div>
+                      <span className="text-xs text-gray-500 whitespace-nowrap">
+                        Submitted {new Date(request.requestedAt).toLocaleDateString('en-US', {
+                          year: 'numeric', month: 'short', day: 'numeric',
+                          hour: '2-digit', minute: '2-digit'
                         })}
-                      </p>
-                      <p className="text-sm text-gray-700">
-                        <span className="font-medium">Reason:</span> {request.reason}
-                      </p>
-                      {request.status === 'approved' && request.reviewedAt && (
-                        <p className="text-xs text-green-700 mt-2">
-                          ✓ Approved on {new Date(request.reviewedAt).toLocaleDateString()}
-                        </p>
-                      )}
-                      {request.status === 'rejected' && (
-                        <div className="mt-2">
-                          <p className="text-xs text-red-700">
-                            ✗ Rejected on {new Date(request.reviewedAt).toLocaleDateString()}
-                          </p>
-                          {request.adminComments && (
-                            <p className="text-xs text-red-600 mt-1">
-                              Admin: {request.adminComments}
-                            </p>
-                          )}
-                        </div>
-                      )}
+                      </span>
                     </div>
-                    <span className={`ml-4 px-3 py-1 rounded-full text-xs font-medium capitalize ${getStatusColor(request.status)}`}>
-                      {request.status}
-                    </span>
+
+                    {/* Reason */}
+                    <div className="mb-3">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Your Reason</p>
+                      <p className="text-sm text-gray-800">{request.reason}</p>
+                    </div>
+
+                    {/* Review details */}
+                    {request.status !== 'pending' && request.reviewedAt && (
+                      <div className={`mt-2 pt-3 border-t ${
+                        request.status === 'approved' ? 'border-green-200' : 'border-red-200'
+                      }`}>
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                            {request.status === 'approved' ? 'Approved' : 'Rejected'} by Admin
+                          </p>
+                          <span className="text-xs text-gray-500">
+                            {new Date(request.reviewedAt).toLocaleDateString('en-US', {
+                              year: 'numeric', month: 'short', day: 'numeric',
+                              hour: '2-digit', minute: '2-digit'
+                            })}
+                          </span>
+                        </div>
+                        {request.status === 'rejected' && request.adminComments && (
+                          <div className="mt-1 p-2 bg-red-100 rounded text-xs text-red-700">
+                            <span className="font-semibold">Admin comment: </span>
+                            {request.adminComments}
+                          </div>
+                        )}
+                        {request.status === 'approved' && (
+                          <p className="text-xs text-green-700 mt-1">
+                            New password was sent to your registered contact email.
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Pending state info */}
+                    {request.status === 'pending' && (
+                      <div className="mt-2 pt-3 border-t border-yellow-200">
+                        <p className="text-xs text-yellow-700">
+                          Waiting for admin review. You'll be notified once a decision is made.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Password Reset Request Modal */}

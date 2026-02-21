@@ -4,8 +4,152 @@ import { registrationAPI, merchandiseAPI } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import Navbar from '../common/Navbar';
 import Loader from '../common/Loader';
-import { FiCalendar, FiClock, FiMapPin, FiPackage, FiCheckCircle, FiXCircle, FiStar, FiX } from 'react-icons/fi';
+import { FiCalendar, FiClock, FiMapPin, FiPackage, FiCheckCircle, FiXCircle, FiStar, FiX, FiTag, FiUser, FiMail, FiHash } from 'react-icons/fi';
 import FeedbackForm from '../shared/FeedbackForm';
+
+// ─── Ticket Modal ────────────────────────────────────────────────────────────
+const TicketModal = ({ ticket, user, onClose }) => {
+  if (!ticket) return null;
+
+  const isRegistration = ticket.type === 'registration';
+  const event = ticket.event;
+
+  return (
+    <div
+      className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="relative w-full max-w-md"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Close */}
+        <button
+          onClick={onClose}
+          className="absolute -top-3 -right-3 z-10 bg-white rounded-full p-1.5 shadow-lg text-gray-500 hover:text-gray-800 transition-colors"
+        >
+          <FiX size={18} />
+        </button>
+
+        {/* Ticket Card */}
+        <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
+
+          {/* Header strip */}
+          <div className="bg-gradient-to-r from-primary-600 to-primary-800 px-6 py-5 text-white">
+            <p className="text-primary-200 text-xs font-semibold uppercase tracking-widest mb-1">
+              {isRegistration ? 'Event Ticket' : 'Merchandise Ticket'}
+            </p>
+            <h2 className="text-xl font-bold leading-tight">{event?.name}</h2>
+            {event?.organizer?.name && (
+              <p className="text-primary-200 text-sm mt-0.5">by {event.organizer.name}</p>
+            )}
+          </div>
+
+          {/* Perforation line */}
+          <div className="flex items-center px-4">
+            <div className="w-5 h-5 rounded-full bg-gray-50 -ml-7 border border-gray-200" />
+            <div className="flex-1 border-t-2 border-dashed border-gray-200 mx-2" />
+            <div className="w-5 h-5 rounded-full bg-gray-50 -mr-7 border border-gray-200" />
+          </div>
+
+          <div className="px-6 py-5 space-y-5">
+
+            {/* QR Code */}
+            {ticket.qrCode ? (
+              <div className="flex justify-center">
+                <div className="bg-white p-3 rounded-xl border-2 border-gray-100 shadow-inner inline-block">
+                  <img
+                    src={ticket.qrCode}
+                    alt="QR Code"
+                    className="w-44 h-44 object-contain"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="flex justify-center">
+                <div className="w-44 h-44 bg-gray-100 rounded-xl flex items-center justify-center text-gray-400 text-sm border-2 border-dashed border-gray-200">
+                  QR not available
+                </div>
+              </div>
+            )}
+
+            {/* Ticket ID */}
+            <div className="flex items-center justify-center gap-2 bg-gray-50 rounded-xl px-4 py-3 border border-gray-100">
+              <FiHash className="text-primary-500 shrink-0" size={14} />
+              <span className="font-mono text-sm font-semibold text-gray-800 tracking-wider break-all text-center">
+                {ticket.ticketId}
+              </span>
+            </div>
+
+            {/* Divider */}
+            <div className="border-t border-gray-100" />
+
+            {/* Event Details */}
+            <div>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">Event Details</p>
+              <div className="space-y-2 text-sm">
+                {event?.eventStartDate && (
+                  <div className="flex items-center gap-2 text-gray-700">
+                    <FiCalendar className="text-primary-400 shrink-0" size={14} />
+                    <span>
+                      {new Date(event.eventStartDate).toLocaleDateString('en-US', {
+                        weekday: 'short', month: 'long', day: 'numeric', year: 'numeric',
+                      })}
+                    </span>
+                  </div>
+                )}
+                {event?.venue && (
+                  <div className="flex items-center gap-2 text-gray-700">
+                    <FiMapPin className="text-primary-400 shrink-0" size={14} />
+                    <span>{event.venue}</span>
+                  </div>
+                )}
+                {event?.eventType && (
+                  <div className="flex items-center gap-2 text-gray-700">
+                    <FiTag className="text-primary-400 shrink-0" size={14} />
+                    <span className="capitalize">{event.eventType}</span>
+                  </div>
+                )}
+                {/* Merchandise-specific */}
+                {!isRegistration && ticket.merchandiseItem?.itemName && (
+                  <div className="flex items-center gap-2 text-gray-700">
+                    <FiPackage className="text-primary-400 shrink-0" size={14} />
+                    <span>{ticket.merchandiseItem.itemName} — {ticket.variant?.name}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Divider */}
+            <div className="border-t border-gray-100" />
+
+            {/* Participant Details */}
+            <div>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">Participant</p>
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center gap-2 text-gray-700">
+                  <FiUser className="text-primary-400 shrink-0" size={14} />
+                  <span>{user?.firstName} {user?.lastName}</span>
+                </div>
+                <div className="flex items-center gap-2 text-gray-700">
+                  <FiMail className="text-primary-400 shrink-0" size={14} />
+                  <span>{user?.email}</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          {/* Footer */}
+          <div className="bg-gray-50 px-6 py-3 border-t border-gray-100 text-center">
+            <p className="text-xs text-gray-400">Present this QR code at the venue for entry</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+// ─────────────────────────────────────────────────────────────────────────────
 
 const ParticipantDashboard = () => {
   const { user } = useAuth();
@@ -17,6 +161,9 @@ const ParticipantDashboard = () => {
   // Feedback modal state
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [selectedEventForFeedback, setSelectedEventForFeedback] = useState(null);
+
+  // Ticket modal state
+  const [selectedTicket, setSelectedTicket] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -184,9 +331,13 @@ const ParticipantDashboard = () => {
                               </div>
                             </div>
                             <div className="mt-3">
-                              <span className="text-xs font-medium bg-primary-100 text-primary-800 px-3 py-1 rounded-full">
-                                Ticket ID: {registration.ticketId}
-                              </span>
+                              <button
+                                onClick={() => setSelectedTicket({ ...registration, type: 'registration' })}
+                                className="text-xs font-medium bg-primary-100 text-primary-800 px-3 py-1 rounded-full hover:bg-primary-200 transition-colors cursor-pointer"
+                                title="View ticket"
+                              >
+                                🎟 Ticket ID: {registration.ticketId}
+                              </button>
                             </div>
                           </div>
                           <div className="ml-4">
@@ -288,9 +439,13 @@ const ParticipantDashboard = () => {
                             </p>
                             {purchase.ticketId && (
                               <div className="mt-3">
-                                <span className="text-xs font-medium bg-primary-100 text-primary-800 px-3 py-1 rounded-full">
-                                  Ticket: {purchase.ticketId}
-                                </span>
+                                <button
+                                  onClick={() => setSelectedTicket({ ...purchase, type: 'merchandise' })}
+                                  className="text-xs font-medium bg-primary-100 text-primary-800 px-3 py-1 rounded-full hover:bg-primary-200 transition-colors cursor-pointer"
+                                  title="View ticket"
+                                >
+                                  🎟 Ticket: {purchase.ticketId}
+                                </button>
                               </div>
                             )}
                           </div>
@@ -340,6 +495,15 @@ const ParticipantDashboard = () => {
         )}
       </div>
       
+      {/* Ticket Modal */}
+      {selectedTicket && (
+        <TicketModal
+          ticket={selectedTicket}
+          user={user}
+          onClose={() => setSelectedTicket(null)}
+        />
+      )}
+
       {/* Feedback Modal */}
       {showFeedbackModal && selectedEventForFeedback && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">

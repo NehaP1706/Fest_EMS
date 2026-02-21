@@ -145,3 +145,42 @@ exports.exportAttendance = async (req, res, next) => {
     next(error);
   }
 };
+exports.removeAttendance = async (req, res, next) => {
+  try {
+    const { eventId, participantId } = req.params;
+
+    const attendance = await Attendance.findOneAndDelete({
+      event: eventId,
+      participant: participantId,
+    });
+
+    if (!attendance) {
+      return res.status(404).json({ success: false, message: 'Attendance record not found' });
+    }
+
+    // Decrement event attendance count
+    await Event.findByIdAndUpdate(eventId, { $inc: { totalAttendance: -1 } });
+
+    // Revert attended flag on registration or purchase
+    const Registration = require('../models/Registration');
+    const MerchandisePurchase = require('../models/MerchandisePurchase');
+
+    const reg = await Registration.findOne({ event: eventId, participant: participantId });
+    if (reg) {
+      reg.attended = false;
+      reg.attendedAt = undefined;
+      await reg.save();
+    } else {
+      const purchase = await MerchandisePurchase.findOne({ event: eventId, participant: participantId });
+      if (purchase) {
+        purchase.attended = false;
+        purchase.attendedAt = undefined;
+        await purchase.save();
+      }
+    }
+
+    res.json({ success: true, message: 'Attendance removed successfully' });
+  } catch (error) {
+    next(error);
+  }
+};

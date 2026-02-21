@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { eventAPI, registrationAPI, merchandiseAPI, attendanceAPI } from '../../services/api';
 import Navbar from '../common/Navbar';
 import Loader from '../common/Loader';
-import { FiEdit, FiTrash2, FiDownload, FiUsers, FiDollarSign, FiCheckCircle, FiClock, FiCalendar, FiStar } from 'react-icons/fi';
+import { FiEdit, FiTrash2, FiDownload, FiUsers, FiDollarSign, FiCheckCircle, FiClock, FiCalendar, FiStar, FiXCircle } from 'react-icons/fi';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import DiscussionForum from '../shared/DiscussionForum';
 
@@ -17,6 +17,7 @@ const OrganizerEventDetail = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
   const [searchTerm, setSearchTerm] = useState('');
+  const [attendanceLoading, setAttendanceLoading] = useState({}); // { participantId: true/false }
 
   useEffect(() => {
     fetchEventData();
@@ -102,6 +103,24 @@ const OrganizerEventDetail = () => {
     navigate(`/organizer/events/${id}/edit`);
   };
 
+  const handleToggleRegistrations = async () => {
+    const closing = !event.registrationsClosed;
+    const confirmed = confirm(
+      closing
+        ? 'Close registrations? Participants will not be able to register until you reopen them.'
+        : 'Reopen registrations? Participants will be able to register again.'
+    );
+    if (!confirmed) return;
+
+    try {
+      const res = await eventAPI.toggleRegistrations(id);
+      setEvent(prev => ({ ...prev, registrationsClosed: res.data.registrationsClosed }));
+      alert(res.data.message);
+    } catch (error) {
+      alert(error.response?.data?.message || 'Failed to update registration status.');
+    }
+  };
+
   const handleExportAttendance = async () => {
     try {
       const response = await attendanceAPI.exportAttendance(id);
@@ -114,6 +133,32 @@ const OrganizerEventDetail = () => {
       link.click();
     } catch (error) {
       alert('Failed to export attendance');
+    }
+  };
+
+  const handleToggleAttendance = async (participantId, participantName, isCurrentlyPresent) => {
+    setAttendanceLoading(prev => ({ ...prev, [participantId]: true }));
+    try {
+      if (isCurrentlyPresent) {
+        // Remove attendance
+        await attendanceAPI.removeAttendance(id, participantId);
+        setAttendance(prev => prev.filter(
+          a => (a.participant?._id?.toString() || a.participant?.toString()) !== participantId
+        ));
+      } else {
+        // Mark present via manual attendance
+        await attendanceAPI.manualAttendance({
+          eventId: id,
+          participantId,
+          reason: 'Manual override by organizer',
+        });
+        // Optimistically add a synthetic attendance record so the row flips immediately
+        setAttendance(prev => [...prev, { participant: { _id: participantId }, scannedAt: new Date(), isManualEntry: true }]);
+      }
+    } catch (error) {
+      alert(error.response?.data?.message || 'Failed to update attendance.');
+    } finally {
+      setAttendanceLoading(prev => ({ ...prev, [participantId]: false }));
     }
   };
 
@@ -236,6 +281,30 @@ const OrganizerEventDetail = () => {
                 <FiStar size={16} />
                 Feedback
               </button>
+              {/* Close / Reopen Registrations */}
+              {(event.status === 'published' || event.status === 'ongoing') && (
+                <button
+                  onClick={handleToggleRegistrations}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors border font-medium ${
+                    event.registrationsClosed
+                      ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'
+                      : 'bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100'
+                  }`}
+                  title={event.registrationsClosed ? 'Reopen Registrations' : 'Close Registrations'}
+                >
+                  {event.registrationsClosed ? (
+                    <>
+                      <FiCheckCircle size={16} />
+                      Reopen Registrations
+                    </>
+                  ) : (
+                    <>
+                      <FiClock size={16} />
+                      Close Registrations
+                    </>
+                  )}
+                </button>
+              )}
               {event.status === 'draft' && (
                 <button onClick={handleDelete} className="btn-danger flex items-center">
                   <FiTrash2 className="mr-2" />
@@ -324,6 +393,13 @@ const OrganizerEventDetail = () => {
           {/* Overview Tab */}
           {activeTab === 'overview' && (
             <div className="p-6 space-y-4">
+              {/* Registrations closed notice */}
+              {event.registrationsClosed && (
+                <div className="flex items-center gap-3 px-4 py-3 bg-orange-50 border border-orange-200 rounded-lg text-orange-800 text-sm font-medium">
+                  <FiClock size={16} className="shrink-0" />
+                  Registrations are currently <strong>closed</strong> by you. Participants cannot register until you reopen them.
+                </div>
+              )}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <h3 className="font-semibold text-gray-900 mb-2">Event Details</h3>
@@ -542,6 +618,9 @@ const OrganizerEventDetail = () => {
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                           Date
                         </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          Actions
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -604,6 +683,26 @@ const OrganizerEventDetail = () => {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                               {dateStr}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                              <button
+                                onClick={() => handleToggleAttendance(participantId, `${item.participant?.firstName} ${item.participant?.lastName}`, isPresent)}
+                                disabled={attendanceLoading[participantId]}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                                  isPresent
+                                    ? 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
+                                    : 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'
+                                }`}
+                                title={isPresent ? 'Mark as Absent' : 'Mark as Present'}
+                              >
+                                {attendanceLoading[participantId] ? (
+                                  <span className="animate-pulse">...</span>
+                                ) : isPresent ? (
+                                  <><FiXCircle size={12} /> Mark Absent</>
+                                ) : (
+                                  <><FiCheckCircle size={12} /> Mark Present</>
+                                )}
+                              </button>
                             </td>
                           </tr>
                         );

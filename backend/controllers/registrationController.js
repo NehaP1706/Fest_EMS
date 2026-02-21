@@ -14,7 +14,25 @@ exports.registerForEvent = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Event not found' });
     }
 
-    // Check eligibility
+    // Check eligibility - CRITICAL: Block non-IIIT from IIIT-only events
+    if (event.eligibility === 'IIIT Students Only') {
+      if (!req.user.participantType || req.user.participantType.toLowerCase() !== 'iiit') {
+        return res.status(403).json({ 
+          success: false, 
+          message: 'This event is only open to IIIT students. You cannot register.' 
+        });
+      }
+    }
+
+    // Check if organizer has manually closed registrations
+    if (event.registrationsClosed) {
+      return res.status(400).json({
+        success: false,
+        message: 'Registrations for this event are currently closed by the organizer.',
+      });
+    }
+
+    // Check registration window
     const canRegister = event.canRegister();
     if (!canRegister.allowed) {
       return res.status(400).json({ success: false, message: canRegister.reason });

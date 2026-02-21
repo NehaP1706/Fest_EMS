@@ -19,6 +19,8 @@ exports.getAllEvents = async (req, res, next) => {
 
     let query = { status: { $in: ['published', 'ongoing'] } };
 
+    console.log(req.user)
+
     if (followedOnly === 'true' && req.user) { // Added req.user check here
       const user = await require('../models/User').findById(req.user._id);
       
@@ -459,6 +461,37 @@ exports.deleteEvent = async (req, res, next) => {
     res.json({
       success: true,
       message: 'Event deleted successfully',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+// @desc    Toggle registrations open/closed (organizer override)
+// @route   PATCH /api/events/:id/toggle-registrations
+// @access  Private (Organizer)
+exports.toggleRegistrations = async (req, res, next) => {
+  try {
+    const event = await Event.findById(req.params.id);
+
+    console.log('Current registrationsClosed:', event.registrationsClosed);
+
+    if (!event) {
+      return res.status(404).json({ success: false, message: 'Event not found' });
+    }
+
+    if (event.organizer.toString() !== req.organizer._id.toString()) {
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+    }
+
+    event.registrationsClosed = !event.registrationsClosed;
+    await event.save();
+
+    res.json({
+      success: true,
+      registrationsClosed: event.registrationsClosed,
+      message: event.registrationsClosed
+        ? 'Registrations have been closed.'
+        : 'Registrations have been reopened.',
     });
   } catch (error) {
     next(error);

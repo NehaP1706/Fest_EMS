@@ -33,10 +33,13 @@ const BrowseEvents = () => {
   const fetchEvents = async () => {
     try {
       setLoading(true);
-      const params = {
-        search: searchTerm,
-        ...filters,
-      };
+      const params = Object.fromEntries(
+      Object.entries(filters).filter(([_, value]) => {
+        return value !== '' && value !== null && value !== undefined && value !== false;
+      })
+    );
+
+      console.log('Sending Clean Params:', params);
       const response = await eventAPI.getAll(params);
       setEvents(response.data.events || []);
     } catch (error) {
@@ -206,13 +209,20 @@ const BrowseEvents = () => {
                 className="card hover:shadow-lg transition-shadow"
               >
                 <div className="flex items-start justify-between mb-3">
-                  <span className={`text-xs px-3 py-1 rounded-full ${
-                    event.eventType === 'merchandise'
-                      ? 'bg-purple-100 text-purple-800'
-                      : 'bg-blue-100 text-blue-800'
-                  }`}>
-                    {event.eventType}
-                  </span>
+                  <div className="flex gap-2">
+                    <span className={`text-xs px-3 py-1 rounded-full ${
+                      event.eventType === 'merchandise'
+                        ? 'bg-purple-100 text-purple-800'
+                        : 'bg-blue-100 text-blue-800'
+                    }`}>
+                      {event.eventType}
+                    </span>
+                    {event.eligibility === 'IIIT Students Only' && (
+                      <span className="text-xs px-3 py-1 rounded-full bg-red-100 text-red-800 font-medium">
+                        IIIT Only
+                      </span>
+                    )}
+                  </div>
                   {event.registrationFee > 0 && (
                     <span className="text-sm font-semibold text-primary-600">
                       ₹{event.registrationFee}

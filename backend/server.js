@@ -36,6 +36,7 @@ const allowedOrigins = [
   'https://fest-ems.vercel.app',
   'http://localhost:5173',
   'http://localhost:3000',
+  'https://localhost:5000',
 ].filter(Boolean); // Remove undefined values
 
 console.log('🌍 Allowed CORS origins:', allowedOrigins);
@@ -43,7 +44,7 @@ console.log('🌍 Allowed CORS origins:', allowedOrigins);
 // Socket.IO setup for real-time features
 const io = socketIo(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    origin: allowedOrigins,
     methods: ['GET', 'POST'],
   },
 });
@@ -80,7 +81,7 @@ app.use(cors({
     }
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 

@@ -91,6 +91,11 @@ const eventSchema = new mongoose.Schema({
     type: Date,
     required: [true, 'Event end date is required'],
   },
+
+  registrationsClosed: {
+    type: Boolean,
+    default: false,
+  },
   
   // Limits
   registrationLimit: {

@@ -86,7 +86,7 @@ const protect = async (req, res, next) => {
   }
 };
 
-exports.loadUserOptional = async (req, res, next) => {
+const loadUserOptional = async (req, res, next) => {
   let token;
   if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
     token = req.headers.authorization.split(' ')[1];
@@ -103,4 +103,31 @@ exports.loadUserOptional = async (req, res, next) => {
   }
 };
 
-module.exports = { generateToken, generateRefreshToken, protect };
+// Add AFTER the existing protect function
+const optionalProtect = async (req, res, next) => {
+  let token;
+
+  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+    token = req.headers.authorization.split(' ')[1];
+  }
+
+  if (!token) {
+    return next(); // No token? Continue anyway (req.user stays undefined)
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    if (decoded.role === 'user') {
+      req.user = await User.findById(decoded.id).select('-password');
+    } else if (decoded.role === 'organizer') {
+      req.organizer = await Organizer.findById(decoded.id).select('-password');
+    }
+
+    next();
+  } catch (error) {
+    next(); // Token invalid? Continue anyway
+  }
+};
+
+module.exports = { generateToken, generateRefreshToken, protect, optionalProtect, loadUserOptional };

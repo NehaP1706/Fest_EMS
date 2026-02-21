@@ -95,6 +95,7 @@ export const eventAPI = {
   update: (id, data) => api.put(`/events/${id}`, data),
   delete: (id) => api.delete(`/events/${id}`),
   getMyEvents: () => api.get('/events/organizer/my-events'),
+  toggleRegistrations: (eventId) => api.patch(`/events/${eventId}/toggle-registrations`),
 };
 
 // Registration APIs
@@ -119,7 +120,7 @@ export const organizerAPI = {
 export const adminAPI = {
   createOrganizer: (data) => api.post('/admin/organizers', data),
   getAllOrganizers: () => api.get('/admin/organizers'),
-  deleteOrganizer: (id) => api.delete(`/admin/organizers/${id}`),
+  deleteOrganizer: (id, body) => api.delete(`/admin/organizers/${id}`, { data: body }),
   getPasswordResets: () => api.get('/admin/password-resets'),
   approveReset: (id) => api.post(`/admin/password-resets/${id}/approve`),
   rejectReset: (id, data) => api.post(`/admin/password-resets/${id}/reject`, data),
@@ -164,6 +165,8 @@ export const attendanceAPI = {
   scanQR: (data) => api.post('/attendance/scan', data),
   getEventAttendance: (eventId) => api.get(`/attendance/${eventId}`),
   exportAttendance: (eventId) => api.get(`/attendance/${eventId}/export`),
+  manualAttendance: (data) => api.post('/attendance/manual', data),
+  removeAttendance: (eventId, participantId) => api.delete(`/attendance/${eventId}/participant/${participantId}`),
 };
 
 export default api;
