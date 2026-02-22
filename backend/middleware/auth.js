@@ -1,3 +1,5 @@
+// REPLACE YOUR ENTIRE auth.js middleware file with this:
+
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Organizer = require('../models/Organizer');
@@ -20,7 +22,7 @@ const generateRefreshToken = (id, role) => {
   );
 };
 
-// Protect routes - verify JWT token
+// Protect routes - verify JWT token (REQUIRED AUTH)
 const protect = async (req, res, next) => {
   let token;
 
@@ -40,6 +42,8 @@ const protect = async (req, res, next) => {
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
+    console.log('🔐 Token decoded:', { id: decoded.id, role: decoded.role });
+
     // Attach user/organizer to request based on role
     if (decoded.role === 'participant' || decoded.role === 'admin') {
       req.user = await User.findById(decoded.id).select('-password');
@@ -49,6 +53,7 @@ const protect = async (req, res, next) => {
           message: 'User not found',
         });
       }
+      console.log('✅ User loaded:', req.user.email, req.user.participantType);
     } else if (decoded.role === 'organizer') {
       req.organizer = await Organizer.findById(decoded.id).select('-password');
       if (!req.organizer) {
@@ -63,14 +68,14 @@ const protect = async (req, res, next) => {
           message: 'Account has been disabled',
         });
       }
+      console.log('✅ Organizer loaded:', req.organizer.name);
     }
 
     req.userRole = decoded.role;
     next();
   } catch (error) {
-    console.error('Token verification error:', error.message);
+    console.error('❌ Token verification error:', error.message);
     
-    // Check if token is expired
     if (error.name === 'TokenExpiredError') {
       return res.status(401).json({
         success: false,
@@ -86,24 +91,7 @@ const protect = async (req, res, next) => {
   }
 };
 
-const loadUserOptional = async (req, res, next) => {
-  let token;
-  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-    token = req.headers.authorization.split(' ')[1];
-  }
-
-  if (!token) return next(); // No token? Just continue as a guest
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = await User.findById(decoded.id);
-    next();
-  } catch (err) {
-    next(); // Invalid token? Continue as guest
-  }
-};
-
-// Add AFTER the existing protect function
+// Optional protect - loads user if token exists, continues if not (OPTIONAL AUTH)
 const optionalProtect = async (req, res, next) => {
   let token;
 
@@ -111,23 +99,48 @@ const optionalProtect = async (req, res, next) => {
     token = req.headers.authorization.split(' ')[1];
   }
 
+  // No token? Continue as guest
   if (!token) {
-    return next(); // No token? Continue anyway (req.user stays undefined)
+    console.log('⚠️ optionalProtect: No token, continuing as guest');
+    return next();
   }
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    console.log('🔐 optionalProtect: Token decoded:', { id: decoded.id, role: decoded.role });
 
-    if (decoded.role === 'user') {
+    // Load user based on role - NOTE THE ROLE VALUES!
+    if (decoded.role === 'participant' || decoded.role === 'admin') {
       req.user = await User.findById(decoded.id).select('-password');
+      if (req.user) {
+        console.log('✅ optionalProtect: User loaded:', req.user.email, req.user.participantType);
+      } else {
+        console.log('⚠️ optionalProtect: User not found in DB');
+      }
     } else if (decoded.role === 'organizer') {
       req.organizer = await Organizer.findById(decoded.id).select('-password');
+      if (req.organizer) {
+        console.log('✅ optionalProtect: Organizer loaded:', req.organizer.name);
+      } else {
+        console.log('⚠️ optionalProtect: Organizer not found in DB');
+      }
+    } else {
+      console.log('⚠️ optionalProtect: Unknown role:', decoded.role);
     }
 
+    req.userRole = decoded.role;
     next();
   } catch (error) {
-    next(); // Token invalid? Continue anyway
+    // Token invalid? Continue anyway as guest
+    console.log('⚠️ optionalProtect: Token invalid, continuing as guest:', error.message);
+    next();
   }
 };
 
-module.exports = { generateToken, generateRefreshToken, protect, optionalProtect, loadUserOptional };
+module.exports = { 
+  generateToken, 
+  generateRefreshToken, 
+  protect,
+  optionalProtect
+};

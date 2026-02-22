@@ -333,10 +333,26 @@ const DiscussionForum = ({ eventId }) => {
     const handleNewMessage = (newMsg) => {
       console.log('📨 New message received:', newMsg);
       setMessages(prev => {
-        // Check if message already exists (avoid duplicates)
+        // Check if message already exists by real ID (avoid duplicates)
         if (prev.some(m => m._id === newMsg._id)) {
           console.log('⚠️ Duplicate message detected, skipping');
           return prev;
+        }
+        // Replace any pending optimistic message from the same author with matching content
+        const hasOptimistic = prev.some(
+          m => m._id?.toString().startsWith('temp-') &&
+               m.content === newMsg.content &&
+               (m.author === newMsg.author?._id || m.author === newMsg.author)
+        );
+        if (hasOptimistic) {
+          console.log('🔄 Replacing optimistic message with real one');
+          return prev.map(m =>
+            m._id?.toString().startsWith('temp-') &&
+            m.content === newMsg.content &&
+            (m.author === newMsg.author?._id || m.author === newMsg.author)
+              ? { ...newMsg, replies: m.replies || [], replyCount: m.replyCount || 0 }
+              : m
+          );
         }
         return [...prev, newMsg];
       });
@@ -474,9 +490,17 @@ const DiscussionForum = ({ eventId }) => {
       });
       
       // Replace optimistic message with real one from server
-      setMessages(prev => prev.map(m => 
-        m._id === optimisticMessage._id ? response.data.message : m
-      ));
+      // (socket may have already replaced it — use content match as fallback)
+      setMessages(prev => {
+        const hasTemp = prev.some(m => m._id === optimisticMessage._id);
+        if (hasTemp) {
+          return prev.map(m =>
+            m._id === optimisticMessage._id ? { ...response.data.message, replies: [], replyCount: 0 } : m
+          );
+        }
+        // Socket already replaced it — nothing to do
+        return prev;
+      });
       
       setIsAnnouncement(false);
       // Socket will also deliver it, but our duplicate check will handle it

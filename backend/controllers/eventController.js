@@ -7,6 +7,11 @@ const { sendDiscordNotification } = require('../utils/DiscordWebhook');
 // @access  Public
 exports.getAllEvents = async (req, res, next) => {
   try {
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('📊 getAllEvents called');
+    console.log('🔐 req.user:', req.user ? `EXISTS (${req.user.email})` : 'UNDEFINED');
+    console.log('🔐 req.organizer:', req.organizer ? `EXISTS (${req.organizer.name})` : 'UNDEFINED');
+    
     const { 
       search, 
       eventType, 
@@ -19,21 +24,39 @@ exports.getAllEvents = async (req, res, next) => {
 
     let query = { status: { $in: ['published', 'ongoing'] } };
 
-    console.log(req.user)
+    // ELIGIBILITY FILTER - Based on user type
+    if (req.user) {
+      const participantType = req.user.participantType;
+      console.log('👤 Participant Type:', participantType);
+      
+      if (participantType === 'Non-IIIT' || participantType === 'non-iiit') {
+        // Non-IIIT students should NOT see IIIT-only events
+        query.eligibility = { $ne: 'iiit-only' };
+        console.log('🚫 Excluding iiit-only events');
+      } else {
+        console.log('✅ IIIT student - showing all events');
+      }
+    } else {
+      console.log('⚠️  No user - showing all events');
+    }
 
-    if (followedOnly === 'true' && req.user) { // Added req.user check here
+    // FOLLOWED ONLY FILTER
+    if (followedOnly === 'true' && req.user) {
+      console.log('🎯 Followed Only filter active');
       const user = await require('../models/User').findById(req.user._id);
       
       if (!user.followedOrganizers || user.followedOrganizers.length === 0) {
-        return res.json({ success: true, count: 0, events: [], message: '...' });
+        console.log('⚠️  User has no followed organizers');
+        return res.json({ success: true, count: 0, events: [], message: 'You are not following any organizers yet.' });
       }
       
+      console.log('📌 Followed organizers:', user.followedOrganizers.length);
       query.organizer = { $in: user.followedOrganizers };
     } else if (organizer) {
       query.organizer = organizer;
     }
     
-    // Apply filters
+    // Apply other filters
     if (search) {
       query.$or = [
         { name: { $regex: search, $options: 'i' } },
@@ -56,13 +79,14 @@ exports.getAllEvents = async (req, res, next) => {
       if (dateTo) query.eventStartDate.$lte = new Date(dateTo);
     }
 
-    if (organizer) {
-      query.organizer = organizer;
-    }
+    console.log('📦 Final Query:', JSON.stringify(query, null, 2));
 
     let events = await Event.find(query)
       .populate('organizer', 'name category')
       .sort({ eventStartDate: 1 });
+
+    console.log('📊 Found', events.length, 'events');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
     // RECOMMENDATION LOGIC - Sort based on user preferences
     if (req.user) {
@@ -71,12 +95,10 @@ exports.getAllEvents = async (req, res, next) => {
       events = events.map(event => {
         let relevanceScore = 0;
 
-        // Score based on areas of interest (match with tags or organizer category)
         if (user.areasOfInterest && user.areasOfInterest.length > 0) {
           const eventTags = event.tags || [];
           const organizerCategory = event.organizer?.category || '';
           
-          // Check if event tags match user interests
           const tagMatches = eventTags.filter(tag => 
             user.areasOfInterest.some(interest => 
               tag.toLowerCase().includes(interest.toLowerCase()) ||
@@ -84,7 +106,6 @@ exports.getAllEvents = async (req, res, next) => {
             )
           ).length;
           
-          // Check if organizer category matches user interests
           const categoryMatch = user.areasOfInterest.some(interest =>
             organizerCategory.toLowerCase().includes(interest.toLowerCase())
           ) ? 1 : 0;
@@ -92,24 +113,21 @@ exports.getAllEvents = async (req, res, next) => {
           relevanceScore += (tagMatches * 10) + (categoryMatch * 5);
         }
 
-        // Higher score for events from followed organizers
         if (user.followedOrganizers && user.followedOrganizers.length > 0) {
           const isFollowed = user.followedOrganizers.some(
             followedId => followedId.toString() === event.organizer?._id?.toString()
           );
           if (isFollowed) {
-            relevanceScore += 20; // Highest priority
+            relevanceScore += 20;
           }
         }
 
-        // Add relevance score to event object
         return {
           ...event.toObject(),
           relevanceScore
         };
       });
 
-      // Sort by relevance score (descending), then by date
       events.sort((a, b) => {
         if (b.relevanceScore !== a.relevanceScore) {
           return b.relevanceScore - a.relevanceScore;
@@ -124,9 +142,11 @@ exports.getAllEvents = async (req, res, next) => {
       events,
     });
   } catch (error) {
+    console.error('❌ Error in getAllEvents:', error);
     next(error);
   }
 };
+
 
 exports.getRecommendedEvents = async (req, res, next) => {
   try {

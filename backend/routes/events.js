@@ -15,14 +15,14 @@ const {
   getRecommendedEvents,
 } = require('../controllers/eventController');
 
-router.get('/', optionalProtect, getAllEvents);
 router.get('/trending', getTrendingEvents);
 router.get('/recommended', protect, isParticipant, getRecommendedEvents);
+router.get('/organizer/my-events', protect, isOrganizer, getOrganizerEvents);
+router.get('/', protect, getAllEvents);
 router.get('/:id', getEvent);
 router.post('/', protect, isOrganizer, createEvent);
 router.put('/:id', protect, isOrganizer, updateEvent);
 router.delete('/:id', protect, isOrganizer, deleteEvent);
-router.get('/organizer/my-events', protect, isOrganizer, getOrganizerEvents);
 router.patch('/:id/toggle-registrations', protect, isOrganizer, toggleRegistrations);
 
 module.exports = router;

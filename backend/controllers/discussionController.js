@@ -61,15 +61,34 @@ exports.getMessages = async (req, res, next) => {
 // Post a new top-level message
 exports.postMessage = async (req, res, next) => {
   try {
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('📝 postMessage called');
+    console.log('EventID from params:', req.params.eventId);
+    console.log('Body:', req.body);
+    console.log('req.user:', req.user ? `EXISTS (${req.user.email})` : 'UNDEFINED');
+    console.log('req.organizer:', req.organizer ? `EXISTS (${req.organizer.name})` : 'UNDEFINED');
+    
     const { eventId } = req.params;
-    const { content, isAnnouncement } = req.body;
+    const { content, message: messageText, isAnnouncement } = req.body;
+    
+    // Support both 'content' and 'message' field names for backward compatibility
+    const messageContent = content || messageText;
 
-    if (!content || content.trim().length === 0) {
+    console.log('Content:', messageContent);
+    console.log('Content length:', messageContent?.trim().length);
+
+    if (!messageContent || messageContent.trim().length === 0) {
+      console.log('❌ ERROR: Content is empty');
       return res.status(400).json({ success: false, message: 'Message content is required' });
     }
 
     const event = await Event.findById(eventId);
-    if (!event) return res.status(404).json({ success: false, message: 'Event not found' });
+    if (!event) {
+      console.log('❌ ERROR: Event not found');
+      return res.status(404).json({ success: false, message: 'Event not found' });
+    }
+
+    console.log('✅ Event found:', event.name);
 
     // Determine author type and permissions
     let authorModel, authorId, authorName;
@@ -78,54 +97,74 @@ exports.postMessage = async (req, res, next) => {
       authorModel = 'Organizer';
       authorId = req.organizer._id;
       authorName = req.organizer.name || 'Organizer';
+      console.log('👤 Author: Organizer -', authorName);
     } else if (req.user) {
       authorModel = 'User';
       authorId = req.user._id;
       authorName = `${req.user.firstName} ${req.user.lastName}`;
+      console.log('👤 Author: User -', authorName);
     } else {
+      console.log('❌ ERROR: No user or organizer');
       return res.status(401).json({ success: false, message: 'Not authenticated' });
     }
 
     // Only organizers can post announcements
     if (isAnnouncement && authorModel !== 'Organizer') {
+      console.log('❌ ERROR: Non-organizer trying to post announcement');
       return res.status(403).json({ success: false, message: 'Only organizers can post announcements' });
     }
 
-    const message = await Discussion.create({
+    console.log('📨 Creating message...');
+    const discussionMessage = await Discussion.create({
       event: eventId,
       author: authorId,
       authorModel,
       authorName,
-      content: content.trim(),
+      content: messageContent.trim(),
       isAnnouncement: isAnnouncement && authorModel === 'Organizer',
     });
 
-    await message.populate(POPULATE);
+    console.log('✅ Message created:', discussionMessage._id);
+
+    await discussionMessage.populate([
+      { path: 'author', select: 'firstName lastName name email' },
+    ]);
+
+    console.log('✅ Message populated');
 
     // Emit via socket.io
     const io = req.app.get('io');
     if (io) {
+      console.log('📡 Emitting socket event to room: event-' + eventId);
       io.to(`event-${eventId}`).emit('new-message', {
-        ...message.toObject(),
+        ...discussionMessage.toObject(),
         replies: [],
         replyCount: 0,
       });
 
       // Notification for announcements
-      if (message.isAnnouncement) {
+      if (discussionMessage.isAnnouncement) {
+        console.log('📢 Emitting announcement');
         io.to(`event-${eventId}`).emit('announcement', {
-          messageId: message._id,
-          content: message.content,
+          messageId: discussionMessage._id,
+          content: discussionMessage.content,
           authorName,
         });
       }
+    } else {
+      console.log('⚠️ Socket.IO not available');
     }
 
-    res.status(201).json({ success: true, message });
+    console.log('✅ Success! Sending response');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+
+    res.status(201).json({ success: true, message: discussionMessage });
   } catch (error) {
+    console.error('❌ ERROR in postMessage:', error);
     next(error);
   }
 };
+
 
 // POST /api/discussions/:messageId/reply
 // Post a reply to an existing message
