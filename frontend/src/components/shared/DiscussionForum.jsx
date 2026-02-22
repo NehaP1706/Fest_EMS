@@ -252,7 +252,7 @@ const MessageBubble = ({
 
 // ── Main Component ────────────────────────────────────────────────────────────
 
-const DiscussionForum = ({ eventId }) => {
+const DiscussionForum = ({ eventId, forceOrganizer = false }) => {
   const { user, organizer } = useAuth();
   const { socket, connected } = useSocket();
   
@@ -268,7 +268,8 @@ const DiscussionForum = ({ eventId }) => {
   const bottomRef = useRef(null);
 
   const currentUserId = user?._id || organizer?._id;
-  const isOrganizer = !!organizer;
+  // forceOrganizer prop allows parent components to explicitly grant organizer-level permissions
+  const isOrganizer = forceOrganizer || !!organizer;
 
   // ── Toast notifications ────────────────────────────────────────────────────
   const addToast = useCallback((text, type = 'info') => {
@@ -464,7 +465,7 @@ const DiscussionForum = ({ eventId }) => {
     const optimisticMessage = {
       _id: `temp-${Date.now()}`, // Temporary ID
       content: newMessage.trim(),
-      authorName: isOrganizer ? organizer.name : `${user.firstName} ${user.lastName}`,
+      authorName: isOrganizer ? (organizer?.name || 'Organizer') : `${user?.firstName} ${user?.lastName}`,
       authorModel: isOrganizer ? 'Organizer' : 'User',
       author: currentUserId,
       isAnnouncement,

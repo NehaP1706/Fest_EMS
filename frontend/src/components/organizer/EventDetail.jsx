@@ -492,7 +492,7 @@ const OrganizerEventDetail = () => {
 
               <div className="pt-8 border-t border-gray-100">
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">Discussion Forum</h2>
-                <DiscussionForum eventId={id} />
+                <DiscussionForum eventId={id} forceOrganizer={true} />
               </div>
             </div>            
           )}
