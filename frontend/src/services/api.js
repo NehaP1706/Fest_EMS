@@ -7,10 +7,9 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 30000, // 30 second timeout
+  timeout: 30000, 
 });
 
-// Request interceptor - Add token to requests
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
@@ -22,44 +21,35 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response interceptor - Handle errors and token expiration
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Handle 401 Unauthorized (token expired or invalid)
     if (error.response?.status === 401) {
       const currentPath = window.location.pathname;
       
-      // Only redirect to login if not already there
       if (!currentPath.includes('/login') && !currentPath.includes('/register')) {
         console.log('Token expired or invalid, redirecting to login...');
         
-        // Clear auth data
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         localStorage.removeItem('role');
         localStorage.removeItem('loginTime');
         
-        // Show session expired message
         const sessionExpired = error.response?.data?.code === 'TOKEN_EXPIRED';
         if (sessionExpired) {
-          // Store a flag to show session expired message
           sessionStorage.setItem('sessionExpired', 'true');
         }
         
-        // Redirect to login
         window.location.href = '/login';
       }
     }
     
-    // Handle 403 Forbidden (account disabled)
     if (error.response?.status === 403) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       localStorage.removeItem('role');
       localStorage.removeItem('loginTime');
       
-      // Store reason for logout
       sessionStorage.setItem('logoutReason', error.response?.data?.message || 'Access forbidden');
       window.location.href = '/login';
     }
@@ -68,14 +58,12 @@ api.interceptors.response.use(
   }
 );
 
-// Auth APIs
 export const authAPI = {
   register: (data) => api.post('/auth/register', data),
   login: (credentials) => api.post('/auth/login', credentials),
   getMe: () => api.get('/auth/me'),
 };
 
-// User APIs
 export const userAPI = {
   setPreferences: (data) => api.put('/users/preferences', data),
   updateProfile: (data) => api.put('/users/profile', data),
@@ -85,7 +73,6 @@ export const userAPI = {
   followOrganizer: (organizerId) => api.post(`/users/follow/${organizerId}`),
 };
 
-// Event APIs
 export const eventAPI = {
   getAll: (params) => api.get('/events', { params }),
   getTrending: () => api.get('/events/trending'),
@@ -98,7 +85,6 @@ export const eventAPI = {
   toggleRegistrations: (eventId) => api.patch(`/events/${eventId}/toggle-registrations`),
 };
 
-// Registration APIs
 export const registrationAPI = {
   register: (eventId, data) => api.post(`/registrations/${eventId}`, data),
   getMyRegistrations: () => api.get('/registrations/my-registrations'),
@@ -106,7 +92,6 @@ export const registrationAPI = {
   getEventRegistrations: (eventId) => api.get(`/registrations/event/${eventId}`),
 };
 
-// Organizer APIs
 export const organizerAPI = {
   getAll: () => api.get('/organizers'),
   getById: (id) => api.get(`/organizers/${id}`),
@@ -116,7 +101,6 @@ export const organizerAPI = {
   getMyResetRequests: () => api.get('/organizers/my-reset-requests'),
 };
 
-// Admin APIs
 export const adminAPI = {
   createOrganizer: (data) => api.post('/admin/organizers', data),
   getAllOrganizers: () => api.get('/admin/organizers'),
@@ -142,7 +126,6 @@ export const merchandiseAPI = {
   claimMerchandise: (registrationId, data) => api.post(`/merchandise/claim/${registrationId}`, data),
 };
 
-// Discussion APIs
 export const discussionAPI = {
   getMessages: (eventId) => api.get(`/discussions/${eventId}`),
   postMessage: (eventId, data) => api.post(`/discussions/${eventId}`, data),
@@ -160,7 +143,6 @@ export const feedbackAPI = {
   getMyFeedback: (eventId) => api.get(`/feedback/${eventId}/my-feedback`), 
 };
 
-// Attendance APIs
 export const attendanceAPI = {
   scanQR: (data) => api.post('/attendance/scan', data),
   getEventAttendance: (eventId) => api.get(`/attendance/${eventId}`),

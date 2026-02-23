@@ -60,7 +60,6 @@ const Onboarding = () => {
   };
 
   const handleSkip = async () => {
-    // Save empty preferences
     try {
       await userAPI.setPreferences({
         areasOfInterest: [],
@@ -69,7 +68,7 @@ const Onboarding = () => {
       navigate('/dashboard');
     } catch (error) {
       console.error('Error skipping onboarding:', error);
-      navigate('/dashboard'); // Navigate anyway
+      navigate('/dashboard'); 
     }
   };
 
@@ -104,17 +103,15 @@ const Onboarding = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-600 to-purple-700 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl p-8">
-        {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-800">
-            Welcome, {user?.firstName}! 🎉
+            Welcome, {user?.firstName}! 
           </h1>
           <p className="text-gray-600 mt-2">
             Let's personalize your experience
           </p>
         </div>
 
-        {/* Progress Bar */}
         <div className="mb-8">
           <div className="flex items-center justify-center">
             <div className="flex items-center">
@@ -137,7 +134,6 @@ const Onboarding = () => {
           </div>
         </div>
 
-        {/* Step 1: Interests */}
         {step === 1 && (
           <div className="space-y-6">
             <div>
@@ -188,7 +184,6 @@ const Onboarding = () => {
           </div>
         )}
 
-        {/* Step 2: Follow Clubs */}
         {step === 2 && (
           <div className="space-y-6">
             <div>
@@ -293,7 +288,6 @@ const Onboarding = () => {
           </div>
         )}
 
-        {/* Optional: Add skip option at top */}
         <div className="text-center mt-6">
           <button
             onClick={() => navigate('/dashboard')}

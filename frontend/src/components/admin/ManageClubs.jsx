@@ -109,7 +109,6 @@ const ManageClubs = () => {
   };
 
   const getStatusBadge = (status) => {
-    // Clean the status string by removing any literal quotes
     const cleanStatus = typeof status === 'string' 
       ? status.replace(/"/g, '').toLowerCase() 
       : status;
@@ -143,7 +142,6 @@ const ManageClubs = () => {
       actions.push({ key: 'unarchive', label: 'Unarchive', icon: FiArchive, color: 'text-blue-600' });
     }
     
-    // Delete is always available (dangerous action)
     actions.push({ key: 'delete', label: 'Delete Permanently', icon: FiTrash2, color: 'text-red-600' });
     
     return actions;
@@ -155,7 +153,7 @@ const ManageClubs = () => {
       disable: `Are you sure you want to disable "${organizerName}"? They will not be able to log in.`,
       archive: `Are you sure you want to archive "${organizerName}"? Archived organizers are hidden from active lists but can be restored.`,
       unarchive: `Are you sure you want to unarchive "${organizerName}"? They will be restored to disabled status.`,
-      delete: `⚠️ DANGER: Are you sure you want to PERMANENTLY DELETE "${organizerName}"? This action CANNOT be undone. All data associated with this organizer will be lost forever.`,
+      delete: `DANGER: Are you sure you want to PERMANENTLY DELETE "${organizerName}"? This action CANNOT be undone. All data associated with this organizer will be lost forever.`,
     };
     return messages[action] || 'Are you sure?';
   };
@@ -176,7 +174,6 @@ const ManageClubs = () => {
           </button>
         </div>
 
-        {/* Add Form */}
         {showAddForm && (
           <div className="card mb-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Add New Club/Organizer</h2>
@@ -271,7 +268,6 @@ const ManageClubs = () => {
           </div>
         )}
 
-        {/* New Credentials Display */}
         {newCredentials && (
           <div className="card mb-6 bg-green-50 border-2 border-green-200">
             <h2 className="text-xl font-semibold text-green-900 mb-4">
@@ -298,7 +294,7 @@ const ManageClubs = () => {
                 </div>
               </div>
               <p className="text-xs text-orange-600 mt-3">
-                ⚠️ Save these credentials now! They won't be shown again.
+                Save these credentials now! They won't be shown again.
               </p>
             </div>
             <button
@@ -310,7 +306,6 @@ const ManageClubs = () => {
           </div>
         )}
 
-        {/* Organizers List */}
         {loading ? (
           <Loader />
         ) : (
@@ -318,7 +313,6 @@ const ManageClubs = () => {
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-semibold text-gray-900">All Organizers</h2>
               
-              {/* Status Filter */}
               <div className="flex gap-2">
                 <button
                   onClick={() => setStatusFilter('all')}
@@ -404,7 +398,6 @@ const ManageClubs = () => {
                           <FiMoreVertical size={18} />
                         </button>
 
-                        {/* Action Dropdown */}
                         {showActionMenu === org._id && (
                           <div className={`absolute right-0 w-56 bg-white rounded-lg shadow-lg border z-20 
                             ${organizers.indexOf(org) >= organizers.length - 2 ? 'bottom-full mb-2' : 'mt-2'}`}>
@@ -431,7 +424,6 @@ const ManageClubs = () => {
           </div>
         )}
 
-        {/* Confirmation Modal */}
         {confirmModal.show && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
@@ -466,7 +458,6 @@ const ManageClubs = () => {
         )}
       </div>
 
-      {/* Click outside to close dropdown */}
       {showActionMenu && (
         <div
           className="fixed inset-0 z-0"

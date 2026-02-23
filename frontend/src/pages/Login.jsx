@@ -15,23 +15,19 @@ const Login = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check for session expired flag
     const sessionExpired = sessionStorage.getItem('sessionExpired');
     if (sessionExpired === 'true') {
       setSessionExpiredMsg('Your session has expired. Please log in again.');
       sessionStorage.removeItem('sessionExpired');
       
-      // Auto-clear message after 10 seconds
       setTimeout(() => setSessionExpiredMsg(''), 10000);
     }
 
-    // Check for logout reason
     const reason = sessionStorage.getItem('logoutReason');
     if (reason) {
       setLogoutReason(reason);
       sessionStorage.removeItem('logoutReason');
       
-      // Auto-clear message after 10 seconds
       setTimeout(() => setLogoutReason(''), 10000);
     }
   }, []);
@@ -46,7 +42,6 @@ const Login = () => {
     try {
       const role = await login({ email, password });
       
-      // Redirect based on role
       if (role === 'participant') navigate('/dashboard');
       else if (role === 'organizer') navigate('/organizer/dashboard');
       else if (role === 'admin') navigate('/admin/dashboard');
@@ -60,7 +55,6 @@ const Login = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-600 to-purple-700 py-12 px-4 sm:px-6 lg:px-8">
       <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
-        {/* Logo/Header */}
         <div className="text-center mb-8">
           <div className="w-16 h-16 bg-gradient-to-br from-primary-600 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <span className="text-white font-bold text-2xl">F</span>
@@ -71,7 +65,6 @@ const Login = () => {
           <p className="text-gray-600 mt-2">Sign in to your account</p>
         </div>
         
-        {/* Session Expired Notice */}
         {sessionExpiredMsg && (
           <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg mb-6 flex items-start">
             <FiClock className="mt-0.5 mr-2 flex-shrink-0" />
@@ -82,7 +75,6 @@ const Login = () => {
           </div>
         )}
 
-        {/* Logout Reason Notice */}
         {logoutReason && (
           <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg mb-6 flex items-start">
             <FiAlertCircle className="mt-0.5 mr-2 flex-shrink-0" />
@@ -92,7 +84,6 @@ const Login = () => {
           </div>
         )}
 
-        {/* Error Message */}
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 flex items-start">
             <FiAlertCircle className="mt-0.5 mr-2 flex-shrink-0" />
@@ -100,7 +91,6 @@ const Login = () => {
           </div>
         )}
 
-        {/* Login Form */}
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -161,7 +151,6 @@ const Login = () => {
           </button>
         </form>
 
-        {/* Register Link */}
         <div className="mt-6 text-center">
           <p className="text-gray-600">
             Don't have an account?{' '}
@@ -171,7 +160,6 @@ const Login = () => {
           </p>
         </div>
 
-        {/* Quick Login Info */}
         <div className="mt-8 pt-6 border-t border-gray-200">
           <p className="text-xs text-gray-500 text-center mb-3">
             Default Admin Credentials (for testing):
@@ -183,7 +171,7 @@ const Login = () => {
           
           <div className="mt-4 p-3 bg-blue-50 rounded-lg">
             <p className="text-xs text-blue-800 text-center">
-              🔒 Sessions persist for 7 days and automatically refresh when you use the app
+              Sessions persist for 7 days and automatically refresh when you use the app
             </p>
           </div>
         </div>

@@ -23,7 +23,6 @@ const Register = () => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
     
-    // Clear error for this field when user starts typing
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: '' }));
     }
@@ -32,7 +31,6 @@ const Register = () => {
   const validate = () => {
     const newErrors = {};
 
-    // Name validation
     if (!formData.firstName.trim()) {
       newErrors.firstName = 'First name is required';
     }
@@ -40,7 +38,6 @@ const Register = () => {
       newErrors.lastName = 'Last name is required';
     }
 
-    // Email validation
     if (!formData.email.trim()) {
       newErrors.email = 'Email is required';
     } else if (!/^\S+@\S+\.\S+$/.test(formData.email)) {
@@ -49,7 +46,6 @@ const Register = () => {
       newErrors.email = 'IIIT students must use @iiit.ac.in email';
     }
 
-    // Password validation
     if (!formData.password) {
       newErrors.password = 'Password is required';
     } else if (formData.password.length < 6) {
@@ -60,12 +56,10 @@ const Register = () => {
       newErrors.confirmPassword = 'Passwords do not match';
     }
 
-    // Contact number validation
     if (formData.contactNumber && !/^\d{10}$/.test(formData.contactNumber)) {
       newErrors.contactNumber = 'Contact number must be 10 digits';
     }
 
-    // College name for non-IIIT students
     if (formData.participantType === 'non-iiit' && !formData.collegeName.trim()) {
       newErrors.collegeName = 'College/Organization name is required for non-IIIT participants';
     }
@@ -84,12 +78,10 @@ const Register = () => {
     setLoading(true);
 
     try {
-      // Remove confirmPassword before sending to API
       const { confirmPassword, ...registrationData } = formData;
       
       await register(registrationData);
       
-      // Redirect to onboarding for preference selection
       navigate('/onboarding');
     } catch (err) {
       setErrors({
@@ -119,7 +111,6 @@ const Register = () => {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Participant Type Selection */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Participant Type *
@@ -150,7 +141,6 @@ const Register = () => {
             </div>
           </div>
 
-          {/* Name Fields */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -187,7 +177,6 @@ const Register = () => {
             </div>
           </div>
 
-          {/* Email */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Email *
@@ -210,7 +199,6 @@ const Register = () => {
             )}
           </div>
 
-          {/* College Name (for non-IIIT) */}
           {formData.participantType === 'non-iiit' && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -230,7 +218,6 @@ const Register = () => {
             </div>
           )}
 
-          {/* Contact Number */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Contact Number
@@ -249,7 +236,6 @@ const Register = () => {
             )}
           </div>
 
-          {/* Password Fields */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -286,7 +272,6 @@ const Register = () => {
             </div>
           </div>
 
-          {/* Submit Button */}
           <button
             type="submit"
             disabled={loading}

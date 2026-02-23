@@ -81,7 +81,7 @@ const OrganizerDashboard = () => {
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">
-              Welcome, {user?.name}! 👋
+              Welcome, {user?.name}! 
             </h1>
             <p className="text-gray-600 mt-2">Manage your events and track performance</p>
           </div>
@@ -95,7 +95,6 @@ const OrganizerDashboard = () => {
           <Loader />
         ) : (
           <>
-            {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               <div className="card bg-gradient-to-br from-blue-500 to-blue-700 text-white">
                 <div className="flex items-center justify-between">
@@ -138,7 +137,6 @@ const OrganizerDashboard = () => {
               </div>
             </div>
 
-            {/* Analytics Chart */}
             {getChartData().length > 0 && (
               <div className="card mb-8">
                 <h2 className="text-xl font-semibold text-gray-900 mb-6">
@@ -158,7 +156,6 @@ const OrganizerDashboard = () => {
               </div>
             )}
 
-            {/* Events Carousel */}
             <div className="card">
               <h2 className="text-xl font-semibold text-gray-900 mb-6">Your Events</h2>
 

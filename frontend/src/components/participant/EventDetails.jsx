@@ -7,7 +7,6 @@ import Loader from '../common/Loader';
 import DiscussionForum from '../shared/DiscussionForum';
 import { FiCalendar, FiClock, FiUsers, FiDollarSign, FiTag, FiX, FiCheck, FiShoppingCart } from 'react-icons/fi';
 
-// Merchandise Purchase Component with Payment Proof Upload
 const MerchandisePurchaseSection = ({ event, item, variant, onPurchaseComplete }) => {
   const [quantity, setQuantity] = useState(1);
   const [paymentProof, setPaymentProof] = useState(null);
@@ -17,14 +16,12 @@ const MerchandisePurchaseSection = ({ event, item, variant, onPurchaseComplete }
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      // Validate file type
       const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
       if (!validTypes.includes(file.type)) {
         alert('Please upload a JPEG, PNG, or PDF file');
         return;
       }
 
-      // Validate file size (5MB max)
       if (file.size > 5 * 1024 * 1024) {
         alert('File size must be less than 5MB');
         return;
@@ -32,7 +29,6 @@ const MerchandisePurchaseSection = ({ event, item, variant, onPurchaseComplete }
 
       setPaymentProof(file);
       
-      // Create preview for images
       if (file.type.startsWith('image/')) {
         const reader = new FileReader();
         reader.onloadend = () => {
@@ -73,7 +69,6 @@ const MerchandisePurchaseSection = ({ event, item, variant, onPurchaseComplete }
       
       alert('Purchase order submitted successfully! Your payment proof is being reviewed by the organizer. You will receive a confirmation email once approved.');
       
-      // Reset form
       setPaymentProof(null);
       setPreviewUrl(null);
       setQuantity(1);
@@ -159,7 +154,7 @@ const MerchandisePurchaseSection = ({ event, item, variant, onPurchaseComplete }
         {paymentProof && !previewUrl && (
           <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded">
             <p className="text-sm text-blue-800">
-              📄 {paymentProof.name} ({(paymentProof.size / 1024).toFixed(1)} KB)
+              {paymentProof.name} ({(paymentProof.size / 1024).toFixed(1)} KB)
             </p>
           </div>
         )}
@@ -203,7 +198,6 @@ const EventDetails = () => {
   const [checkingRegistration, setCheckingRegistration] = useState(true);
   
 
-  // Direct purchase with payment proof
   const [purchaseItem, setPurchaseItem] = useState(null);
   const [purchaseVariant, setPurchaseVariant] = useState(null);
 
@@ -217,7 +211,6 @@ const EventDetails = () => {
       const response = await eventAPI.getById(id);
       setEvent(response.data.event);
       
-      // Initialize form data with empty values
       if (response.data.event.customForm?.fields) {
         const initialData = {};
         response.data.event.customForm.fields.forEach(field => {
@@ -249,7 +242,6 @@ const EventDetails = () => {
       
       setMyRegistration(existingReg || null);
 
-      // Check for existing merchandise purchases
       const merchResponse = await merchandiseAPI.getMyPurchases();
       const purchases = merchResponse.data.purchases || [];
       const existingPurchase = purchases.find(p => {
@@ -337,7 +329,6 @@ const EventDetails = () => {
   };
 
 
-  // Handle direct purchase with payment proof
   const handleDirectPurchase = (item, variant) => {
     setPurchaseItem(item);
     setPurchaseVariant(variant);
@@ -543,7 +534,6 @@ const EventDetails = () => {
       <Navbar />
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Event Header */}
         <div className="card mb-6">
           <div className="flex items-start justify-between mb-4">
             <div className="flex-1">
@@ -561,7 +551,6 @@ const EventDetails = () => {
 
           <p className="text-gray-700 mb-6">{event.description}</p>
 
-          {/* Event Info Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             <div className="flex items-center text-gray-700">
               <FiCalendar className="mr-3 text-primary-600" size={20} />
@@ -602,7 +591,6 @@ const EventDetails = () => {
             )}
           </div>
 
-          {/* Tags */}
           {event.tags && event.tags.length > 0 && (
             <div className="flex items-center flex-wrap gap-2 mb-6">
               <FiTag className="text-gray-400" />
@@ -617,7 +605,6 @@ const EventDetails = () => {
             </div>
           )}
 
-          {/* Registration Status / Actions */}
           {myRegistration ? (
             <div className="space-y-3">
               <div className="bg-green-50 border-2 border-green-200 text-green-800 px-4 py-4 rounded-lg flex items-center justify-between">
@@ -657,7 +644,6 @@ const EventDetails = () => {
           )}
         </div>
 
-        {/* Merchandise Purchase Section (Direct Purchase with Payment Proof) */}
         {event.eventType === 'merchandise' && event.merchandiseItems && event.merchandiseItems.length > 0 && (
           <div className="card mb-6">
             <h2 className="text-2xl font-semibold text-gray-900 mb-4 flex items-center">
@@ -708,7 +694,6 @@ const EventDetails = () => {
           </div>
         )}
 
-        {/* Purchase Status Section */}
         {myMerchPurchase && myMerchPurchase.paymentStatus && (
           <div className="card mb-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Your Purchase Status</h2>
@@ -747,14 +732,12 @@ const EventDetails = () => {
           </div>
         )}
 
-        {/* Discussion Forum */}
         <div className="card">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Discussion Forum</h2>
           <DiscussionForum eventId={id} />
         </div>
       </div>
 
-      {/* Registration Form Modal */}
       {showRegistrationModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -773,9 +756,9 @@ const EventDetails = () => {
               <div className="bg-primary-50 border border-primary-200 rounded-lg p-4 mb-6">
                 <h3 className="font-semibold text-primary-900 mb-2">{event.name}</h3>
                 <div className="text-sm text-primary-700 space-y-1">
-                  <p>📅 {formatDate(event.eventStartDate)}</p>
+                  <p>{formatDate(event.eventStartDate)}</p>
                   {event.registrationFee > 0 && (
-                    <p className="font-medium">💰 Registration Fee: ₹{event.registrationFee}</p>
+                    <p className="font-medium"> Registration Fee: ₹{event.registrationFee}</p>
                   )}
                 </div>
               </div>
@@ -844,7 +827,6 @@ const EventDetails = () => {
         </div>
       )}
 
-      {/* Direct Purchase Modal (with Payment Proof) */}
       {showPurchaseModal && purchaseItem && purchaseVariant && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">

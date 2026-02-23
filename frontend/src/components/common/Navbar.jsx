@@ -13,7 +13,6 @@ const Navbar = () => {
     navigate('/login');
   };
 
-  // Navigation items based on role
   const getNavItems = () => {
     switch (role) {
       case 'participant':
@@ -48,7 +47,6 @@ const Navbar = () => {
     <nav className="bg-white shadow-lg border-b border-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
-          {/* Logo and Brand */}
           <div className="flex items-center">
             <Link to={role === 'organizer' ? '/organizer/dashboard' : role === 'admin' ? '/admin/dashboard' : '/dashboard'} className="flex items-center">
               <div className="w-10 h-10 bg-gradient-to-br from-primary-600 to-purple-600 rounded-lg flex items-center justify-center">
@@ -60,7 +58,6 @@ const Navbar = () => {
             </Link>
           </div>
 
-          {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-1">
             {navItems.map((item) => (
               <Link
@@ -72,7 +69,6 @@ const Navbar = () => {
               </Link>
             ))}
 
-            {/* User Menu */}
             <div className="ml-4 flex items-center space-x-4 border-l pl-4">
               <div className="flex items-center space-x-2">
                 <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center">
@@ -92,7 +88,6 @@ const Navbar = () => {
             </div>
           </div>
 
-          {/* Mobile menu button */}
           <div className="md:hidden flex items-center">
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -104,7 +99,6 @@ const Navbar = () => {
         </div>
       </div>
 
-      {/* Mobile Navigation */}
       {mobileMenuOpen && (
         <div className="md:hidden border-t border-gray-200 bg-white">
           <div className="px-2 pt-2 pb-3 space-y-1">

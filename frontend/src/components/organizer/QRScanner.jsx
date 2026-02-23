@@ -15,7 +15,6 @@ const QRScanner = () => {
     fetchEvents();
   }, []);
 
-  // Clean up scanner on unmount or when scanning stops
   useEffect(() => {
     return () => {
       if (scanner) {
@@ -24,7 +23,6 @@ const QRScanner = () => {
     };
   }, [scanner]);
 
-  // Initialize scanner when scanning starts
   useEffect(() => {
     if (scanning && selectedEvent) {
       const html5QrcodeScanner = new Html5QrcodeScanner(
@@ -57,15 +55,12 @@ const QRScanner = () => {
     }
 
     setScanResult(null);
-    setScanning(true); // This will trigger the useEffect above
+    setScanning(true); 
   };
 
   const onScanSuccess = async (decodedText) => {
     try {
-      // Parse QR data
-      //const qrData = JSON.parse(decodedText);
-
-      // Mark attendance
+      
       const response = await attendanceAPI.scanQR({
         qrData: decodedText,
         eventId: selectedEvent,
@@ -77,7 +72,6 @@ const QRScanner = () => {
         data: response.data.attendance,
       });
 
-      // Stop scanner after successful scan
       stopScanning();
     } catch (error) {
       setScanResult({
@@ -88,7 +82,6 @@ const QRScanner = () => {
   };
 
   const onScanError = (error) => {
-    // Ignore scanning errors (common when camera is initializing)
     console.log('Scan error:', error);
   };
 
@@ -108,7 +101,6 @@ const QRScanner = () => {
         <div className="card">
           <h1 className="text-3xl font-bold text-gray-900 mb-6">QR Scanner</h1>
 
-          {/* Event Selection */}
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Select Event
@@ -128,7 +120,6 @@ const QRScanner = () => {
             </select>
           </div>
 
-          {/* Scanner Controls */}
           <div className="mb-6">
             {!scanning ? (
               <button
@@ -149,14 +140,12 @@ const QRScanner = () => {
             )}
           </div>
 
-          {/* QR Scanner Display - This must render BEFORE initializing */}
           {scanning && (
             <div className={`mb-6 ${!scanning ? 'hidden' : ''}`}>
               <div id="qr-reader" className="w-full"></div>
             </div>
           )}
 
-          {/* Scan Result */}
           {scanResult && (
             <div
               className={`p-4 rounded-lg ${
@@ -190,7 +179,6 @@ const QRScanner = () => {
             </div>
           )}
 
-          {/* Instructions */}
           <div className="mt-6 bg-blue-50 border border-blue-200 p-4 rounded-lg">
             <h3 className="font-medium text-blue-900 mb-2">Instructions:</h3>
             <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">

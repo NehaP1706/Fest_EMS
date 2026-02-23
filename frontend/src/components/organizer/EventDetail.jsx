@@ -17,7 +17,7 @@ const OrganizerEventDetail = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
   const [searchTerm, setSearchTerm] = useState('');
-  const [attendanceLoading, setAttendanceLoading] = useState({}); // { participantId: true/false }
+  const [attendanceLoading, setAttendanceLoading] = useState({}); 
 
   useEffect(() => {
     fetchEventData();
@@ -27,11 +27,9 @@ const OrganizerEventDetail = () => {
     try {
       setLoading(true);
       
-      // Fetch event details
       const eventRes = await eventAPI.getById(id);
       setEvent(eventRes.data.event);
 
-      // Fetch attendance (if available)
       try {
         const attendanceRes = await attendanceAPI.getEventAttendance(id);
         setAttendance(attendanceRes.data.attendances || []);
@@ -40,9 +38,7 @@ const OrganizerEventDetail = () => {
         setAttendance([]);
       }
 
-      // Fetch participants based on event type
       if (eventRes.data.event.eventType === 'merchandise') {
-        // For merchandise events, fetch BOTH purchases AND registrations
         try {
           const [purchasesRes, regsRes] = await Promise.all([
             merchandiseAPI.getEventPurchases(id),
@@ -52,11 +48,8 @@ const OrganizerEventDetail = () => {
           const purchases = purchasesRes.data.purchases || [];
           const registrations = regsRes.data.registrations || [];
           
-          // Use purchases for main display (Participants tab, Analytics)
           setParticipants(purchases);
           
-          // Store registrations separately for Form tab
-          // Add this state at the top: const [registrations, setRegistrations] = useState([]);
           setRegistrations(registrations);
         } catch (err) {
           console.error('Error fetching data:', err);
@@ -64,12 +57,11 @@ const OrganizerEventDetail = () => {
           setRegistrations([]);
         }
       } else {
-        // Fetch registrations for normal events
         try {
           const regsRes = await registrationAPI.getEventRegistrations(id);
           const regs = regsRes.data.registrations || [];
           setParticipants(regs);
-          setRegistrations(regs);  // Same for normal events
+          setRegistrations(regs);  
         } catch (err) {
           console.error('Error fetching registrations:', err);
           setParticipants([]);
@@ -124,7 +116,6 @@ const OrganizerEventDetail = () => {
   const handleExportAttendance = async () => {
     try {
       const response = await attendanceAPI.exportAttendance(id);
-      // Create download link
       const blob = new Blob([response.data], { type: 'text/csv' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -140,19 +131,16 @@ const OrganizerEventDetail = () => {
     setAttendanceLoading(prev => ({ ...prev, [participantId]: true }));
     try {
       if (isCurrentlyPresent) {
-        // Remove attendance
         await attendanceAPI.removeAttendance(id, participantId);
         setAttendance(prev => prev.filter(
           a => (a.participant?._id?.toString() || a.participant?.toString()) !== participantId
         ));
       } else {
-        // Mark present via manual attendance
         await attendanceAPI.manualAttendance({
           eventId: id,
           participantId,
           reason: 'Manual override by organizer',
         });
-        // Optimistically add a synthetic attendance record so the row flips immediately
         setAttendance(prev => [...prev, { participant: { _id: participantId }, scannedAt: new Date(), isManualEntry: true }]);
       }
     } catch (error) {
@@ -216,7 +204,6 @@ const OrganizerEventDetail = () => {
     );
   });
 
-  // Accept either legacy `customRegistrationForm` or new `customForm.fields`
   const formFields = event ? (event.customRegistrationForm || event.customForm?.fields || []) : [];
 
   if (loading) {
@@ -246,7 +233,6 @@ const OrganizerEventDetail = () => {
       <Navbar />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
         <div className="mb-8">
           <div className="flex items-start justify-between mb-4">
             <div>
@@ -272,7 +258,6 @@ const OrganizerEventDetail = () => {
                 <FiEdit className="mr-2" />
                 Edit
               </button>
-              {/* Feedback Button */}
               <button
                 onClick={() => navigate(`/organizer/events/${id}/feedback`)}
                 className="flex items-center gap-2 px-4 py-2 bg-yellow-50 text-yellow-700 rounded-lg hover:bg-yellow-100 transition-colors border border-yellow-200 font-medium"
@@ -281,7 +266,6 @@ const OrganizerEventDetail = () => {
                 <FiStar size={16} />
                 Feedback
               </button>
-              {/* Close / Reopen Registrations */}
               {(event.status === 'published' || event.status === 'ongoing') && (
                 <button
                   onClick={handleToggleRegistrations}
@@ -314,7 +298,6 @@ const OrganizerEventDetail = () => {
             </div>
           </div>
 
-          {/* Event Info Grid */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="card bg-white">
               <div className="flex items-center">
@@ -370,7 +353,6 @@ const OrganizerEventDetail = () => {
           </div>
         </div>
 
-        {/* Tabs */}
         <div className="card mb-6">
           <div className="border-b border-gray-200">
             <nav className="-mb-px flex space-x-8">
@@ -390,10 +372,8 @@ const OrganizerEventDetail = () => {
             </nav>
           </div>
 
-          {/* Overview Tab */}
           {activeTab === 'overview' && (
             <div className="p-6 space-y-4">
-              {/* Registrations closed notice */}
               {event.registrationsClosed && (
                 <div className="flex items-center gap-3 px-4 py-3 bg-orange-50 border border-orange-200 rounded-lg text-orange-800 text-sm font-medium">
                   <FiClock size={16} className="shrink-0" />
@@ -464,7 +444,6 @@ const OrganizerEventDetail = () => {
                 
               )}
 
-              {/* Custom Registration Form Preview */}
               {formFields && formFields.length > 0 && (
                 <div>
                   <h3 className="font-semibold text-gray-900 mb-2">
@@ -497,8 +476,6 @@ const OrganizerEventDetail = () => {
             </div>            
           )}
 
-          {/* Form Responses Tab */}
-          {/* Form Tab */}
           {activeTab === 'form' && (
             <div className="p-6">
               <h3 className="font-semibold text-gray-900 mb-4">
@@ -541,7 +518,7 @@ const OrganizerEventDetail = () => {
                             {registration.ticketId}
                           </td>
                           {formFields.map((field) => {
-                            const response = registration.formResponses?.[field.fieldId];  {/* ✅ Now has data */}
+                            const response = registration.formResponses?.[field.fieldId];  
                             return (
                               <td key={field.fieldId} className="px-6 py-4 text-sm text-gray-900">
                                 {response ? (
@@ -574,7 +551,6 @@ const OrganizerEventDetail = () => {
             </div>
           )}
 
-          {/* Participants Tab */}
           {activeTab === 'participants' && (
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
@@ -627,14 +603,11 @@ const OrganizerEventDetail = () => {
                       {filteredParticipants.map((item) => {
                         const participantId = item.participant?._id?.toString();
 
-                        // Cross-reference against the attendance array fetched from attendanceAPI
-                        // attendance records have a participant field with _id
                         const isPresent = attendance.some(
                           (a) => a.participant?._id?.toString() === participantId
                             || a.participant?.toString() === participantId
                         );
 
-                        // Payment/registration status
                         const ps = item.paymentStatus || item.status || '';
                         const isApproved = ps === 'approved' || ps === 'completed';
                         const isRejected = ps === 'rejected';
@@ -644,7 +617,6 @@ const OrganizerEventDetail = () => {
                           ? 'bg-red-100 text-red-800'
                           : 'bg-yellow-100 text-yellow-800';
 
-                        // Date
                         const dateVal = item.registeredAt || item.purchasedAt || item.purchaseDate;
                         const dateStr = dateVal && !isNaN(new Date(dateVal))
                           ? new Date(dateVal).toLocaleDateString()
@@ -714,11 +686,9 @@ const OrganizerEventDetail = () => {
             </div>
           )}
 
-          {/* Analytics Tab */}
           {activeTab === 'analytics' && (
             <div className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Attendance Chart */}
                 {event.status !== 'draft' && participants.length > 0 && (
                   <div>
                     <h3 className="font-semibold text-gray-900 mb-4">Attendance Overview</h3>
@@ -744,7 +714,6 @@ const OrganizerEventDetail = () => {
                   </div>
                 )} 
 
-                {/* Payment Status Chart */}
                 {participants.length > 0 && (
                   <div>
                     <h3 className="font-semibold text-gray-900 mb-4">
@@ -773,8 +742,7 @@ const OrganizerEventDetail = () => {
                 )}
               </div>
 
-              {/* Export Button */}
-              {attendance.length > 0 && (
+\              {attendance.length > 0 && (
                 <div className="mt-6">
                   <button onClick={handleExportAttendance} className="btn-secondary flex items-center">
                     <FiDownload className="mr-2" />

@@ -34,7 +34,6 @@ const FeedbackForm = ({ eventId, onClose }) => {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {/* Star Rating */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
           How would you rate this event? *
@@ -67,7 +66,6 @@ const FeedbackForm = ({ eventId, onClose }) => {
         </div>
       </div>
 
-      {/* Comment */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Additional Comments (Optional)
@@ -85,7 +83,6 @@ const FeedbackForm = ({ eventId, onClose }) => {
         </p>
       </div>
 
-      {/* Anonymous Notice */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
         <p className="text-xs text-blue-800">
           <strong>Anonymous Feedback:</strong> Your feedback will be submitted anonymously. 
@@ -93,7 +90,6 @@ const FeedbackForm = ({ eventId, onClose }) => {
         </p>
       </div>
 
-      {/* Submit Button */}
       <div className="flex gap-2">
         <button
           type="button"

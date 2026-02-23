@@ -34,9 +34,8 @@ const ParticipantProfile = () => {
   const [followedOrganizers, setFollowedOrganizers] = useState([]);
   const [loadingOrganizers, setLoadingOrganizers] = useState(true);
 
-  // Password change/reset states
   const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [passwordMode, setPasswordMode] = useState('change'); // 'change' or 'reset'
+  const [passwordMode, setPasswordMode] = useState('change'); 
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
     newPassword: '',
@@ -123,12 +122,10 @@ const ParticipantProfile = () => {
     }
   };
 
-  // Password change with old password verification
   const handlePasswordChange = async (e) => {
     e.preventDefault();
     setPasswordError('');
 
-    // Validation
     if (!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
       setPasswordError('All fields are required');
       return;
@@ -161,7 +158,6 @@ const ParticipantProfile = () => {
     }
   };
 
-  // Request OTP for password reset
   const handleRequestOTP = async () => {
     setPasswordError('');
     
@@ -178,12 +174,10 @@ const ParticipantProfile = () => {
     }
   };
 
-  // Reset password with OTP
   const handlePasswordReset = async (e) => {
     e.preventDefault();
     setPasswordError('');
 
-    // Validation
     if (!resetData.otp || !resetData.newPassword || !resetData.confirmPassword) {
       setPasswordError('All fields are required');
       return;
@@ -248,7 +242,6 @@ const ParticipantProfile = () => {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-8">
-            {/* Personal Information Section */}
             <div>
               <h2 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b">
                 Personal Information
@@ -338,7 +331,6 @@ const ParticipantProfile = () => {
               </div>
             </div>
 
-            {/* Areas of Interest Section */}
             <div>
               <div className="flex items-center justify-between mb-4 pb-2 border-b">
                 <h2 className="text-lg font-semibold text-gray-900">
@@ -397,8 +389,7 @@ const ParticipantProfile = () => {
               )}
             </div>
 
-            {/* Save Button */}
-            {editing && (
+           {editing && (
               <div className="pt-6 border-t">
                 <button
                   type="submit"
@@ -413,7 +404,6 @@ const ParticipantProfile = () => {
           </form>
         </div>
 
-        {/* Security Settings Card */}
         <div className="card mt-6">
           <div className="flex items-center justify-between mb-6 pb-2 border-b">
             <h2 className="text-lg font-semibold text-gray-900 flex items-center">
@@ -435,7 +425,6 @@ const ParticipantProfile = () => {
           </button>
         </div>
 
-        {/* Followed Clubs Section */}
         <div className="card mt-6">
           <div className="flex items-center justify-between mb-6 pb-2 border-b">
             <h2 className="text-lg font-semibold text-gray-900 flex items-center">
@@ -522,15 +511,14 @@ const ParticipantProfile = () => {
           {followedOrganizers.length > 0 && (
             <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
               <p className="text-sm text-gray-700">
-                💡 <strong>Tip:</strong> Events from these clubs will appear higher in your browse results and recommendations!
+               <strong>Tip:</strong> Events from these clubs will appear higher in your browse results and recommendations!
               </p>
             </div>
           )}
         </div>
 
-        {/* Additional Info Card */}
         <div className="card mt-6 bg-gradient-to-br from-primary-50 to-purple-50 border-2 border-primary-200">
-          <h3 className="font-semibold text-gray-900 mb-2">💡 How Preferences Work</h3>
+          <h3 className="font-semibold text-gray-900 mb-2">How Preferences Work</h3>
           <ul className="text-sm text-gray-700 space-y-1">
             <li>• <strong>Areas of Interest:</strong> Events matching your interests appear higher in browse results</li>
             <li>• <strong>Followed Clubs:</strong> Get priority notifications for events from clubs you follow</li>
@@ -539,7 +527,6 @@ const ParticipantProfile = () => {
         </div>
       </div>
 
-      {/* Password Change/Reset Modal */}
       {showPasswordModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
@@ -558,7 +545,6 @@ const ParticipantProfile = () => {
                 </button>
               </div>
 
-              {/* Mode Selection */}
               <div className="flex gap-2 mb-6">
                 <button
                   onClick={() => {
@@ -595,7 +581,6 @@ const ParticipantProfile = () => {
                 </div>
               )}
 
-              {/* Change Password Form */}
               {passwordMode === 'change' && (
                 <form onSubmit={handlePasswordChange} className="space-y-4">
                   <div>
@@ -674,7 +659,6 @@ const ParticipantProfile = () => {
                 </form>
               )}
 
-              {/* Reset Password Form */}
               {passwordMode === 'reset' && (
                 <div className="space-y-4">
                   {!otpSent ? (

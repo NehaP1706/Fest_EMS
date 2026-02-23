@@ -19,10 +19,8 @@ const CreateEvent = () => {
     tags: '',
   });
 
-  // Custom form fields (for normal events)
   const [customFields, setCustomFields] = useState([]);
 
-  // Merchandise items (for merchandise events) - UPDATED
   const [merchandiseItems, setMerchandiseItems] = useState([
     {
       itemId: 'item-1',
@@ -51,7 +49,6 @@ const CreateEvent = () => {
     if (errors[name]) setErrors({ ...errors, [name]: '' });
   };
 
-  // Add new merchandise item
   const handleAddMerchandiseItem = () => {
     const newItem = {
       itemId: `item-${Date.now()}`,
@@ -72,7 +69,6 @@ const CreateEvent = () => {
     setMerchandiseItems([...merchandiseItems, newItem]);
   };
 
-  // Remove merchandise item
   const handleRemoveMerchandiseItem = (itemIndex) => {
     if (merchandiseItems.length === 1) {
       alert('At least one merchandise item is required');
@@ -81,7 +77,6 @@ const CreateEvent = () => {
     setMerchandiseItems(merchandiseItems.filter((_, i) => i !== itemIndex));
   };
 
-  // Update merchandise item field
   const handleMerchandiseItemChange = (itemIndex, field, value) => {
     const updated = merchandiseItems.map((item, i) => {
       if (i === itemIndex) {
@@ -92,7 +87,6 @@ const CreateEvent = () => {
     setMerchandiseItems(updated);
   };
 
-  // Add variant to a specific merchandise item
   const handleAddVariant = (itemIndex) => {
     const updated = merchandiseItems.map((item, i) => {
       if (i === itemIndex) {
@@ -116,7 +110,6 @@ const CreateEvent = () => {
     setMerchandiseItems(updated);
   };
 
-  // Remove variant from a specific merchandise item
   const handleRemoveVariant = (itemIndex, variantIndex) => {
     const updated = merchandiseItems.map((item, i) => {
       if (i === itemIndex) {
@@ -134,7 +127,6 @@ const CreateEvent = () => {
     setMerchandiseItems(updated);
   };
 
-  // Update variant field
   const handleVariantChange = (itemIndex, variantIndex, field, value) => {
     const updated = merchandiseItems.map((item, i) => {
       if (i === itemIndex) {
@@ -153,7 +145,6 @@ const CreateEvent = () => {
     setMerchandiseItems(updated);
   };
 
-  // Add custom field (for normal events)
   const handleAddCustomField = () => {
     setCustomFields([
       ...customFields,
@@ -168,12 +159,10 @@ const CreateEvent = () => {
     ]);
   };
 
-  // Remove custom field
   const handleRemoveCustomField = (index) => {
     setCustomFields(customFields.filter((_, i) => i !== index));
   };
 
-  // Update custom field
   const handleCustomFieldChange = (index, field, value) => {
     const updated = customFields.map((f, i) => {
       if (i === index) {
@@ -193,7 +182,6 @@ const CreateEvent = () => {
     if (!formData.eventStartDate) newErrors.eventStartDate = 'Start date is required';
     if (!formData.eventEndDate) newErrors.eventEndDate = 'End date is required';
 
-    // Validate merchandise if merchandise event
     if (formData.eventType === 'merchandise') {
       merchandiseItems.forEach((item, itemIndex) => {
         if (!item.itemName.trim()) {
@@ -229,9 +217,7 @@ const CreateEvent = () => {
     if (formData.eventType === 'merchandise') {
       eventData.merchandiseItems = merchandiseItems;
     }
-    // Always include custom form fields regardless of event type
     if (customFields.length > 0) {
-      // send in backend schema: customForm.fields
       eventData.customForm = { fields: customFields };
     }
 
@@ -256,8 +242,6 @@ const CreateEvent = () => {
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="card">
           <h1 className="text-3xl font-bold text-gray-900 mb-6">Create New Event</h1>
-
-          {/* Basic Information */}
           <div className="space-y-6 mb-8">
             <h2 className="text-xl font-semibold text-gray-900 border-b pb-2">Basic Information</h2>
 
@@ -415,7 +399,6 @@ const CreateEvent = () => {
             </div>
           </div>
 
-          {/* Merchandise Section - UPDATED */}
           {formData.eventType === 'merchandise' && (
             <div className="mb-8">
               <div className="flex items-center justify-between mb-4 pb-2 border-b">
@@ -494,7 +477,6 @@ const CreateEvent = () => {
                         />
                       </div>
 
-                      {/* Variants for this item */}
                       <div className="mt-4 pt-4 border-t border-gray-300">
                         <div className="flex items-center justify-between mb-3">
                           <h4 className="font-medium text-gray-900">Variants</h4>
@@ -613,7 +595,6 @@ const CreateEvent = () => {
             </div>
           )}
 
-          {/* Custom Form Section (for all event types) */}
           <div className="mb-8">
               <div className="flex items-center justify-between mb-4 pb-2 border-b">
                 <h2 className="text-xl font-semibold text-gray-900">
@@ -716,7 +697,6 @@ const CreateEvent = () => {
               )}
             </div>
 
-          {/* Action Buttons */}
           <div className="flex gap-4 pt-6 border-t">
             <button
               onClick={() => handleSubmit('draft')}

@@ -6,12 +6,11 @@ import Navbar from '../common/Navbar';
 import Loader from '../common/Loader';
 import { FiSearch, FiCalendar, FiMapPin, FiTrendingUp, FiStar, FiX } from 'react-icons/fi';
 
-// Fuse.js config — searches across the most useful fields with weighted importance
 const FUSE_OPTIONS = {
   includeScore: true,
-  threshold: 0.35,          // 0 = exact, 1 = match anything; 0.35 is a good balanced default
+  threshold: 0.35,          
   minMatchCharLength: 2,
-  ignoreLocation: true,     // don't penalise matches far from start of string
+  ignoreLocation: true,     
   keys: [
     { name: 'name',                  weight: 0.5  },
     { name: 'description',           weight: 0.25 },
@@ -21,7 +20,7 @@ const FUSE_OPTIONS = {
 };
 
 const BrowseEvents = () => {
-  const [allEvents, setAllEvents] = useState([]);   // full list from server (personalized order)
+  const [allEvents, setAllEvents] = useState([]);   
   const [trending, setTrending] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -37,7 +36,6 @@ const BrowseEvents = () => {
     followedOnly: queryParams.get('followedOnly') === 'true',
   });
 
-  // ── Fetch from server (filters only — no search param, Fuse handles that) ──
   const fetchEvents = useCallback(async (currentFilters) => {
     try {
       setLoading(true);
@@ -71,12 +69,10 @@ const BrowseEvents = () => {
   useEffect(() => {
     fetchEvents(filters);
     fetchTrending();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []); 
 
-  // ── Fuse instance — rebuilt only when allEvents changes ──────────────────
   const fuse = useMemo(() => new Fuse(allEvents, FUSE_OPTIONS), [allEvents]);
 
-  // ── Filtered + searched events (pure derived state, no extra fetches) ────
   const displayedEvents = useMemo(() => {
     if (!searchTerm.trim()) return allEvents;
     return fuse.search(searchTerm.trim()).map(r => r.item);
@@ -85,7 +81,7 @@ const BrowseEvents = () => {
   const handleFilterChange = (key, value) => {
     const updated = { ...filters, [key]: value };
     setFilters(updated);
-    fetchEvents(updated);   // re-fetch from server with new filters
+    fetchEvents(updated);   
   };
 
   const clearFilters = () => {
@@ -107,7 +103,6 @@ const BrowseEvents = () => {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
-        {/* Header */}
         <div className="mb-8 flex items-start justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Browse Events</h1>
@@ -121,7 +116,6 @@ const BrowseEvents = () => {
           )}
         </div>
 
-        {/* Trending */}
         {trending.length > 0 && (
           <div className="mb-8">
             <div className="flex items-center mb-4">
@@ -151,10 +145,8 @@ const BrowseEvents = () => {
           </div>
         )}
 
-        {/* Search + Filters */}
         <div className="card mb-6">
           <div className="space-y-4">
-            {/* Search — instant, no submit needed */}
             <div className="flex gap-2">
               <div className="flex-1 relative">
                 <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -184,7 +176,6 @@ const BrowseEvents = () => {
               )}
             </div>
 
-            {/* Filters */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <select value={filters.eventType} onChange={(e) => handleFilterChange('eventType', e.target.value)} className="input">
                 <option value="">All Types</option>
@@ -214,7 +205,6 @@ const BrowseEvents = () => {
           </div>
         </div>
 
-        {/* Results */}
         {loading ? (
           <Loader />
         ) : displayedEvents.length === 0 ? (

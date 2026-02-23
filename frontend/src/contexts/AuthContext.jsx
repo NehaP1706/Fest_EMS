@@ -18,31 +18,26 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [sessionExpired, setSessionExpired] = useState(false);
   
-  // Ref to track if we're currently refreshing
   const isRefreshing = useRef(false);
 
   useEffect(() => {
     checkAuth();
     
-    // Set up periodic token validation (every 5 minutes)
     const interval = setInterval(() => {
       validateSession();
-    }, 5 * 60 * 1000); // 5 minutes
+    }, 5 * 60 * 1000); 
 
-    // Set up event listener for tab focus
     const handleFocus = () => {
       validateSession();
     };
     window.addEventListener('focus', handleFocus);
 
-    // Cleanup
     return () => {
       clearInterval(interval);
       window.removeEventListener('focus', handleFocus);
     };
   }, []);
 
-  // Validate session when tab gains focus or periodically
   const validateSession = async () => {
     const token = localStorage.getItem('token');
     if (!token || isRefreshing.current) return;
@@ -68,7 +63,6 @@ export const AuthProvider = ({ children }) => {
       try {
         isRefreshing.current = true;
         
-        // First, try to use stored data for immediate UI update
         if (storedUser && storedRole) {
           try {
             const parsedUser = JSON.parse(storedUser);
@@ -79,7 +73,6 @@ export const AuthProvider = ({ children }) => {
           }
         }
 
-        // Then verify with server
         const response = await authAPI.getMe();
         const userData = response.data.user || response.data.organizer;
         const userRole = response.data.role;
@@ -87,7 +80,6 @@ export const AuthProvider = ({ children }) => {
         setUser(userData);
         setRole(userRole);
         
-        // Update localStorage with fresh data
         localStorage.setItem('user', JSON.stringify(userData));
         localStorage.setItem('role', userRole);
         
@@ -95,7 +87,6 @@ export const AuthProvider = ({ children }) => {
       } catch (error) {
         console.error('Auth check failed:', error);
         
-        // Only logout if token is definitely invalid
         if (error.response?.status === 401) {
           logout();
         }
@@ -103,7 +94,6 @@ export const AuthProvider = ({ children }) => {
         isRefreshing.current = false;
       }
     } else {
-      // No token, clear everything
       logout();
     }
     setLoading(false);
@@ -114,7 +104,6 @@ export const AuthProvider = ({ children }) => {
       const response = await authAPI.login(credentials);
       const { token, user: userData, role: userRole } = response.data;
       
-      // Store in localStorage with timestamp
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(userData));
       localStorage.setItem('role', userRole);
@@ -135,7 +124,6 @@ export const AuthProvider = ({ children }) => {
       const response = await authAPI.register(data);
       const { token, user: userData } = response.data;
       
-      // Store in localStorage
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(userData));
       localStorage.setItem('role', 'participant');
@@ -150,7 +138,6 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
-    // Clear all auth data
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     localStorage.removeItem('role');

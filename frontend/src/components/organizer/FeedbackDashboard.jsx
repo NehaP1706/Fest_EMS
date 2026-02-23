@@ -12,7 +12,7 @@ const FeedbackDashboard = () => {
   const [feedbacks, setFeedbacks] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [filterRating, setFilterRating] = useState(0); // 0 = all
+  const [filterRating, setFilterRating] = useState(0);
 
   useEffect(() => {
     fetchData();
@@ -42,11 +42,10 @@ const FeedbackDashboard = () => {
       return;
     }
 
-    // Create CSV content
     const headers = ['Rating', 'Comment', 'Submitted At'];
     const rows = feedbacks.map(f => [
       f.rating,
-      `"${(f.comment || '').replace(/"/g, '""')}"`, // Escape quotes
+      `"${(f.comment || '').replace(/"/g, '""')}"`, 
       new Date(f.submittedAt).toLocaleString(),
     ]);
 
@@ -55,7 +54,6 @@ const FeedbackDashboard = () => {
       ...rows.map(row => row.join(',')),
     ].join('\n');
 
-    // Download CSV
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -104,7 +102,6 @@ const FeedbackDashboard = () => {
       <Navbar />
 
       <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Header */}
         <div className="mb-6">
           <button
             onClick={() => navigate('/organizer/events')}
@@ -127,9 +124,7 @@ const FeedbackDashboard = () => {
           </div>
         </div>
 
-        {/* Stats Overview */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          {/* Total Feedback */}
           <div className="card">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -142,7 +137,6 @@ const FeedbackDashboard = () => {
             </div>
           </div>
 
-          {/* Average Rating */}
           <div className="card">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
@@ -157,7 +151,6 @@ const FeedbackDashboard = () => {
             </div>
           </div>
 
-          {/* Rating Distribution */}
           <div className="card">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
@@ -189,7 +182,6 @@ const FeedbackDashboard = () => {
           </div>
         </div>
 
-        {/* Rating Distribution Chart */}
         <div className="card mb-8">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Detailed Rating Distribution</h2>
           <div className="space-y-3">
@@ -220,7 +212,6 @@ const FeedbackDashboard = () => {
           </div>
         </div>
 
-        {/* Filter */}
         <div className="card mb-6">
           <div className="flex items-center gap-4">
             <FiFilter className="text-gray-400" />
@@ -253,7 +244,6 @@ const FeedbackDashboard = () => {
           </div>
         </div>
 
-        {/* Feedback List */}
         <div className="space-y-4">
           {filteredFeedbacks.length === 0 ? (
             <div className="card text-center py-12">

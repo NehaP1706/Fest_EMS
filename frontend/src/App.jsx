@@ -37,11 +37,9 @@ function App() {
       <SocketProvider>
       <BrowserRouter>
         <Routes>
-          {/* Public routes */}
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           
-          {/* Participant routes */}
           <Route path="/onboarding" element={
             <ProtectedRoute allowedRoles={['participant']}>
               <OnboardingPage />
@@ -78,7 +76,6 @@ function App() {
             </ProtectedRoute>
           } />
 
-          {/* Organizer routes */}
           <Route path="/organizer/dashboard" element={
             <ProtectedRoute allowedRoles={['organizer']}>
               <OrganizerDashboard />
@@ -122,7 +119,6 @@ function App() {
           </ProtectedRoute>
         } />
 
-          {/* Admin routes */}
           <Route path="/admin/dashboard" element={
             <ProtectedRoute allowedRoles={['admin']}>
               <AdminDashboard />
@@ -139,7 +135,6 @@ function App() {
             </ProtectedRoute>
           } />
 
-          {/* Default redirect */}
           <Route path="/" element={<Navigate to="/login" replace />} />
         </Routes>
       </BrowserRouter>

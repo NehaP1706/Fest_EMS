@@ -113,7 +113,6 @@ const MerchandiseApproval = () => {
                   </p>
                 </div>
 
-                {/* Payment Proof Image */}
                 {purchase.paymentProof && (
                   <div className="mb-4">
                     <p className="text-sm font-medium text-gray-700 mb-2">
@@ -139,7 +138,6 @@ const MerchandiseApproval = () => {
                   Uploaded: {new Date(purchase.paymentProof?.uploadedAt).toLocaleString()}
                 </p>
 
-                {/* Action Buttons */}
                 <div className="flex gap-2">
                   <button
                     onClick={() => handleApprove(purchase._id)}
@@ -161,7 +159,6 @@ const MerchandiseApproval = () => {
           </div>
         )}
 
-        {/* Rejection Modal */}
         {selectedPurchase && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg max-w-md w-full p-6">

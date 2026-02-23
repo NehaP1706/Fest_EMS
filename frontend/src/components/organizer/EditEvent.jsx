@@ -12,13 +12,11 @@ const EditEvent = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   
-  // Editable fields
   const [description, setDescription] = useState('');
   const [registrationDeadline, setRegistrationDeadline] = useState('');
   const [registrationLimit, setRegistrationLimit] = useState('');
   const [status, setStatus] = useState('');
 
-  // Custom registration form fields (editable when draft)
   const [customFields, setCustomFields] = useState([]);
 
   const handleAddCustomField = () => {
@@ -66,7 +64,6 @@ const EditEvent = () => {
       setRegistrationLimit(eventData.registrationLimit || '');
       setStatus(eventData.status || 'draft');
 
-      // initialize custom fields (accept legacy or new shape)
       setCustomFields(eventData.customRegistrationForm || eventData.customForm?.fields || []);
     } catch (error) {
       console.error('Error fetching event:', error);
@@ -80,7 +77,6 @@ const EditEvent = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Validation
     if (!description.trim()) {
       alert('Description is required');
       return;
@@ -91,11 +87,9 @@ const EditEvent = () => {
       return;
     }
 
-    // Build update data based on event status
     let updateData = {};
 
     if (event.status === 'draft') {
-      // Draft events can change status (include custom form edits)
       updateData = {
         description,
         registrationDeadline,
@@ -104,14 +98,12 @@ const EditEvent = () => {
         customForm: { fields: customFields },
       };
     } else if (event.status === 'published') {
-      // Published events have limited edit permissions
       updateData = {
         description,
         registrationDeadline,
         registrationLimit: registrationLimit || null,
       };
       
-      // Validate deadline extension (can't reduce)
       const currentDeadline = new Date(event.registrationDeadline);
       const newDeadline = new Date(registrationDeadline);
       if (newDeadline < currentDeadline) {
@@ -119,7 +111,6 @@ const EditEvent = () => {
         return;
       }
 
-      // Validate limit increase (can't reduce)
       if (registrationLimit && event.registrationLimit) {
         if (parseInt(registrationLimit) < parseInt(event.registrationLimit)) {
           alert('Registration limit can only be increased, not reduced');
@@ -127,7 +118,6 @@ const EditEvent = () => {
         }
       }
     } else {
-      // Ongoing/completed/closed events can only change status
       updateData = { status };
     }
 
@@ -192,7 +182,6 @@ const EditEvent = () => {
             <p className="text-gray-600">{event.name}</p>
           </div>
 
-          {/* Edit restrictions notice */}
           {isPublished && (
             <div className="mb-6 p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded">
               <div className="flex items-start">
@@ -223,7 +212,6 @@ const EditEvent = () => {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Non-editable info */}
             <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
               <h3 className="font-semibold text-gray-900 mb-3">Event Information (Non-editable)</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
@@ -263,11 +251,9 @@ const EditEvent = () => {
               </div>
             </div>
 
-            {/* Editable fields */}
             <div className="space-y-6">
               <h3 className="font-semibold text-gray-900 border-b pb-2">Editable Fields</h3>
 
-              {/* Description - Always editable */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Description *
@@ -285,7 +271,6 @@ const EditEvent = () => {
                 </p>
               </div>
 
-              {/* Registration Deadline - Editable for draft and published */}
               {(isDraft || isPublished) && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -300,13 +285,12 @@ const EditEvent = () => {
                   />
                   {isPublished && (
                     <p className="text-xs text-yellow-600 mt-1">
-                      ⚠️ For published events, deadline can only be extended (moved forward), not reduced
+                      For published events, deadline can only be extended (moved forward), not reduced
                     </p>
                   )}
                 </div>
               )}
 
-              {/* Registration Limit - Editable for draft and published */}
               {(isDraft || isPublished) && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -322,7 +306,7 @@ const EditEvent = () => {
                   />
                   {isPublished && event.registrationLimit && (
                     <p className="text-xs text-yellow-600 mt-1">
-                      ⚠️ For published events, limit can only be increased, not reduced (current: {event.registrationLimit})
+                      For published events, limit can only be increased, not reduced (current: {event.registrationLimit})
                     </p>
                   )}
                   {isPublished && !event.registrationLimit && (
@@ -333,7 +317,6 @@ const EditEvent = () => {
                 </div>
               )}
 
-              {/* Status Control */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Event Status
@@ -371,7 +354,6 @@ const EditEvent = () => {
                 </select>
               </div>
 
-              {/* Custom Registration Form (editable only when draft) */}
               {isDraft && (
                 <div className="mt-6 p-4 border-t">
                   <div className="flex items-center justify-between mb-4">
@@ -430,7 +412,7 @@ const EditEvent = () => {
               )}
               {isDraft && (
                 <p className="text-xs text-blue-600 mt-1">
-                  💡 Publish the event to make it visible to participants
+                  Publish the event to make it visible to participants
                 </p>
               )}
               {isPublished && (
@@ -440,7 +422,6 @@ const EditEvent = () => {
               )}
             </div>
 
-            {/* Action Buttons */}
             <div className="flex gap-4 pt-6 border-t">
               <button
                 type="button"
@@ -461,9 +442,8 @@ const EditEvent = () => {
           </form>
         </div>
 
-        {/* Help Section */}
         <div className="card mt-6 bg-blue-50 border-2 border-blue-200">
-          <h3 className="font-semibold text-blue-900 mb-2">💡 Event Lifecycle</h3>
+          <h3 className="font-semibold text-blue-900 mb-2">Event Lifecycle</h3>
           <ul className="text-sm text-blue-800 space-y-1">
             <li>• <strong>Draft:</strong> Full editing allowed. Not visible to participants.</li>
             <li>• <strong>Published:</strong> Visible to participants. Limited editing (description, deadline extension, limit increase).</li>

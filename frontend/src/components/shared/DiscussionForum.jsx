@@ -9,7 +9,6 @@ import {
 
 const EMOJIS = ['👍', '❤️', '😂', '😮', '👏'];
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
 
 const timeAgo = (date) => {
   const s = Math.floor((Date.now() - new Date(date)) / 1000);
@@ -25,7 +24,6 @@ const summarizeReactions = (reactions = []) => {
   return map;
 };
 
-// ── Sub-components ────────────────────────────────────────────────────────────
 
 const ReactionBar = ({ reactions, userReaction, onReact }) => {
   const [open, setOpen] = useState(false);
@@ -35,7 +33,6 @@ const ReactionBar = ({ reactions, userReaction, onReact }) => {
 
   return (
     <div className="flex items-center gap-1 flex-wrap">
-      {/* Existing reaction counts */}
       {Object.entries(summary).map(([emoji, count]) => (
         <button
           key={emoji}
@@ -49,7 +46,6 @@ const ReactionBar = ({ reactions, userReaction, onReact }) => {
         </button>
       ))}
 
-      {/* Add reaction picker */}
       <div className="relative">
         <button
           onClick={() => setOpen(o => !o)}
@@ -127,10 +123,8 @@ const MessageBubble = ({
   return (
     <div className={`${depth > 0 ? 'ml-6 mt-2' : 'mb-3'}`}>
       <div className={`rounded-lg p-3 border border-gray-100 ${bgColor}`}>
-        {/* Header */}
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Avatar */}
             <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0
               ${message.authorModel === 'Organizer' ? 'bg-purple-500' : 'bg-blue-500'}`}>
               {(message.authorName || '?')[0].toUpperCase()}
@@ -152,7 +146,6 @@ const MessageBubble = ({
             <span className="text-xs text-gray-400">{timeAgo(message.createdAt)}</span>
           </div>
 
-          {/* Actions */}
           <div className="flex items-center gap-1 flex-shrink-0">
             {canPin && (
               <button
@@ -175,12 +168,10 @@ const MessageBubble = ({
           </div>
         </div>
 
-        {/* Content */}
         <p className="mt-2 text-sm text-gray-700 leading-relaxed whitespace-pre-wrap break-words">
           {message.content}
         </p>
 
-        {/* Footer: reactions + reply */}
         <div className="mt-2 flex items-center gap-3 flex-wrap">
           <ReactionBar
             reactions={reactionSummary}
@@ -198,7 +189,6 @@ const MessageBubble = ({
           )}
         </div>
 
-        {/* Reply input */}
         {replying && (
           <div className="mt-3 flex gap-2">
             <input
@@ -221,7 +211,6 @@ const MessageBubble = ({
         )}
       </div>
 
-      {/* Replies */}
       {message.replies && message.replies.length > 0 && (
         <div className="mt-2">
           <button
@@ -250,7 +239,6 @@ const MessageBubble = ({
   );
 };
 
-// ── Main Component ────────────────────────────────────────────────────────────
 
 const DiscussionForum = ({ eventId, forceOrganizer = false }) => {
   const { user, organizer } = useAuth();
@@ -268,24 +256,20 @@ const DiscussionForum = ({ eventId, forceOrganizer = false }) => {
   const bottomRef = useRef(null);
 
   const currentUserId = user?._id || organizer?._id;
-  // forceOrganizer prop allows parent components to explicitly grant organizer-level permissions
   const isOrganizer = forceOrganizer || !!organizer;
 
-  // ── Toast notifications ────────────────────────────────────────────────────
   const addToast = useCallback((text, type = 'info') => {
     const id = Date.now();
     setToasts(prev => [...prev, { id, text, type }]);
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 5000);
   }, []);
 
-  // ── Scroll to bottom ───────────────────────────────────────────────────────
   const scrollToBottom = useCallback(() => {
     if (bottomRef.current) {
       bottomRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, []);
 
-  // ── Fetch messages ─────────────────────────────────────────────────────────
   const fetchMessages = useCallback(async () => {
     try {
       setLoading(true);
@@ -299,12 +283,10 @@ const DiscussionForum = ({ eventId, forceOrganizer = false }) => {
     }
   }, [eventId, addToast]);
 
-  // ── Initial fetch ──────────────────────────────────────────────────────────
   useEffect(() => {
     fetchMessages();
   }, [fetchMessages]);
 
-  // ── Fetch unread count ─────────────────────────────────────────────────────
   useEffect(() => {
     const fetchUnread = async () => {
       try {
@@ -317,36 +299,26 @@ const DiscussionForum = ({ eventId, forceOrganizer = false }) => {
     fetchUnread();
   }, [eventId]);
 
-  // ── Real-time Socket.IO listeners ──────────────────────────────────────────
   useEffect(() => {
     if (!socket || !eventId) {
-      console.log('⏸️ Socket not ready or no eventId');
+      console.log('Socket not ready or no eventId');
       return;
     }
 
-    console.log('📡 Setting up real-time listeners for event:', eventId);
-
-    // Join the event room
     socket.emit('join-event', eventId);
-    console.log('✅ Joined event room:', eventId);
+    console.log('Joined event room:', eventId);
 
-    // Listen for new messages
     const handleNewMessage = (newMsg) => {
-      console.log('📨 New message received:', newMsg);
       setMessages(prev => {
-        // Check if message already exists by real ID (avoid duplicates)
         if (prev.some(m => m._id === newMsg._id)) {
-          console.log('⚠️ Duplicate message detected, skipping');
           return prev;
         }
-        // Replace any pending optimistic message from the same author with matching content
         const hasOptimistic = prev.some(
           m => m._id?.toString().startsWith('temp-') &&
                m.content === newMsg.content &&
                (m.author === newMsg.author?._id || m.author === newMsg.author)
         );
         if (hasOptimistic) {
-          console.log('🔄 Replacing optimistic message with real one');
           return prev.map(m =>
             m._id?.toString().startsWith('temp-') &&
             m.content === newMsg.content &&
@@ -359,20 +331,16 @@ const DiscussionForum = ({ eventId, forceOrganizer = false }) => {
       });
       scrollToBottom();
       
-      // Only increment unread if not from current user
       if (newMsg.author !== currentUserId && newMsg.author?._id !== currentUserId) {
         setUnreadCount(prev => prev + 1);
       }
     };
 
-    // Listen for new replies
     const handleNewReply = ({ parentId, reply }) => {
-      console.log('💬 New reply received for message:', parentId);
       setMessages(prev => prev.map(m => {
         if (m._id === parentId) {
-          // Check if reply already exists
           if (m.replies && m.replies.some(r => r._id === reply._id)) {
-            console.log('⚠️ Duplicate reply detected, skipping');
+            
             return m;
           }
           return {
@@ -384,26 +352,21 @@ const DiscussionForum = ({ eventId, forceOrganizer = false }) => {
         return m;
       }));
       
-      // Only increment unread if not from current user
       if (reply.author !== currentUserId && reply.author?._id !== currentUserId) {
         setUnreadCount(prev => prev + 1);
       }
     };
 
-    // Listen for message deletions
     const handleMessageDeleted = ({ messageId }) => {
-      console.log('🗑️ Message deleted:', messageId);
       setMessages(prev => prev.filter(m => m._id !== messageId));
     };
 
-    // Listen for pin updates
+
     const handleMessagePinned = ({ messageId, isPinned }) => {
-      console.log('📌 Message pin toggled:', messageId, isPinned);
       setMessages(prev => {
         const updated = prev.map(m => 
           m._id === messageId ? { ...m, isPinned } : m
         );
-        // Re-sort: pinned messages first, then announcements, then chronological
         return updated.sort((a, b) => {
           if (a.isPinned && !b.isPinned) return -1;
           if (!a.isPinned && b.isPinned) return 1;
@@ -414,21 +377,17 @@ const DiscussionForum = ({ eventId, forceOrganizer = false }) => {
       });
     };
 
-    // Listen for reaction updates
     const handleReactionUpdated = ({ messageId, reactions }) => {
-      console.log('👍 Reaction updated:', messageId, reactions);
       setMessages(prev => prev.map(m => 
         m._id === messageId ? { ...m, reactions } : m
       ));
     };
 
-    // Listen for announcements
+
     const handleAnnouncement = ({ content, authorName }) => {
-      console.log('📢 Announcement received:', content);
-      addToast(`📢 ${authorName}: ${content.slice(0, 80)}${content.length > 80 ? '…' : ''}`, 'announcement');
+      addToast(`${authorName}: ${content.slice(0, 80)}${content.length > 80 ? '…' : ''}`, 'announcement');
     };
 
-    // Attach all listeners
     socket.on('new-message', handleNewMessage);
     socket.on('new-reply', handleNewReply);
     socket.on('message-deleted', handleMessageDeleted);
@@ -436,9 +395,7 @@ const DiscussionForum = ({ eventId, forceOrganizer = false }) => {
     socket.on('reaction-updated', handleReactionUpdated);
     socket.on('announcement', handleAnnouncement);
 
-    // Cleanup function
     return () => {
-      console.log('🧹 Cleaning up socket listeners for event:', eventId);
       socket.emit('leave-event', eventId);
       socket.off('new-message', handleNewMessage);
       socket.off('new-reply', handleNewReply);
@@ -449,7 +406,6 @@ const DiscussionForum = ({ eventId, forceOrganizer = false }) => {
     };
   }, [socket, eventId, scrollToBottom, addToast, currentUserId]);
 
-  // ── Mark read when tab is focused ─────────────────────────────────────────
   useEffect(() => {
     if (unreadCount > 0) {
       discussionAPI.markRead(eventId).catch(() => {});
@@ -457,13 +413,11 @@ const DiscussionForum = ({ eventId, forceOrganizer = false }) => {
     }
   }, [unreadCount, eventId]);
 
-  // ── Post message ───────────────────────────────────────────────────────────
   const handlePost = async () => {
     if (!newMessage.trim() || posting) return;
     
-    // Create optimistic message for immediate UI update
     const optimisticMessage = {
-      _id: `temp-${Date.now()}`, // Temporary ID
+      _id: `temp-${Date.now()}`, 
       content: newMessage.trim(),
       authorName: isOrganizer ? (organizer?.name || 'Organizer') : `${user?.firstName} ${user?.lastName}`,
       authorModel: isOrganizer ? 'Organizer' : 'User',
@@ -480,7 +434,6 @@ const DiscussionForum = ({ eventId, forceOrganizer = false }) => {
     const messageContent = newMessage.trim();
     setNewMessage('');
     
-    // Optimistically add message to UI
     setMessages(prev => [...prev, optimisticMessage]);
     scrollToBottom();
     
@@ -490,8 +443,6 @@ const DiscussionForum = ({ eventId, forceOrganizer = false }) => {
         isAnnouncement,
       });
       
-      // Replace optimistic message with real one from server
-      // (socket may have already replaced it — use content match as fallback)
       setMessages(prev => {
         const hasTemp = prev.some(m => m._id === optimisticMessage._id);
         if (hasTemp) {
@@ -499,29 +450,24 @@ const DiscussionForum = ({ eventId, forceOrganizer = false }) => {
             m._id === optimisticMessage._id ? { ...response.data.message, replies: [], replyCount: 0 } : m
           );
         }
-        // Socket already replaced it — nothing to do
         return prev;
       });
       
       setIsAnnouncement(false);
-      // Socket will also deliver it, but our duplicate check will handle it
     } catch (err) {
       console.error('Error posting message:', err);
-      // Remove optimistic message on error
       setMessages(prev => prev.filter(m => m._id !== optimisticMessage._id));
-      setNewMessage(messageContent); // Restore message
+      setNewMessage(messageContent); 
       addToast(err.response?.data?.message || 'Failed to post message', 'error');
     } finally {
       setPosting(false);
     }
   };
 
-  // ── Reply ──────────────────────────────────────────────────────────────────
   const handleReply = async (parentId, content) => {
     try {
       const response = await discussionAPI.postReply(parentId, { content });
       
-      // Optimistically add reply to UI
       setMessages(prev => prev.map(m => {
         if (m._id === parentId) {
           return {
@@ -533,36 +479,29 @@ const DiscussionForum = ({ eventId, forceOrganizer = false }) => {
         return m;
       }));
       
-      // Socket will also deliver it, but our duplicate check will handle it
     } catch (err) {
       console.error('Error posting reply:', err);
       addToast('Failed to post reply', 'error');
-      throw err; // Re-throw so MessageBubble can handle it
+      throw err; 
     }
   };
 
-  // ── Delete ────────────────────────────────────────────────────────────────
   const handleDelete = async (messageId) => {
     if (!confirm('Delete this message?')) return;
     
-    // Optimistically remove from UI
     const previousMessages = [...messages];
     setMessages(prev => prev.filter(m => m._id !== messageId));
     
     try {
       await discussionAPI.deleteMessage(messageId);
-      // Socket will also deliver deletion event
     } catch (err) {
       console.error('Error deleting message:', err);
-      // Restore on error
       setMessages(previousMessages);
       addToast('Failed to delete message', 'error');
     }
   };
 
-  // ── Pin ───────────────────────────────────────────────────────────────────
   const handlePin = async (messageId) => {
-    // Optimistically update UI
     const previousMessages = [...messages];
     setMessages(prev => {
       const updated = prev.map(m => 
@@ -577,18 +516,14 @@ const DiscussionForum = ({ eventId, forceOrganizer = false }) => {
     
     try {
       await discussionAPI.pinMessage(messageId);
-      // Socket will also deliver pin event
     } catch (err) {
       console.error('Error pinning message:', err);
-      // Restore on error
       setMessages(previousMessages);
       addToast('Failed to pin message', 'error');
     }
   };
 
-  // ── React ─────────────────────────────────────────────────────────────────
   const handleReact = async (messageId, emoji) => {
-    // Optimistically update UI
     const previousMessages = [...messages];
     setMessages(prev => prev.map(m => {
       if (m._id === messageId) {
@@ -618,10 +553,8 @@ const DiscussionForum = ({ eventId, forceOrganizer = false }) => {
     
     try {
       await discussionAPI.reactToMessage(messageId, { emoji });
-      // Socket will also deliver reaction update
     } catch (err) {
       console.error('Error reacting to message:', err);
-      // Restore on error
       setMessages(previousMessages);
       addToast('Failed to react', 'error');
     }
@@ -638,7 +571,6 @@ const DiscussionForum = ({ eventId, forceOrganizer = false }) => {
   return (
     <div className="relative flex flex-col" style={{ minHeight: '400px' }}>
 
-      {/* Connection Status Indicator */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           {connected ? (
@@ -654,7 +586,6 @@ const DiscussionForum = ({ eventId, forceOrganizer = false }) => {
           )}
         </div>
 
-        {/* Unread badge */}
         {unreadCount > 0 && (
           <div className="flex items-center gap-2 px-3 py-1 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-700">
             <FiBell size={12} />
@@ -663,7 +594,6 @@ const DiscussionForum = ({ eventId, forceOrganizer = false }) => {
         )}
       </div>
 
-      {/* Toast notifications */}
       <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none">
         {toasts.map(t => (
           <div
@@ -681,7 +611,6 @@ const DiscussionForum = ({ eventId, forceOrganizer = false }) => {
         ))}
       </div>
 
-      {/* Messages area */}
       <div
         ref={containerRef}
         className="flex-1 overflow-y-auto pr-1"
@@ -711,7 +640,6 @@ const DiscussionForum = ({ eventId, forceOrganizer = false }) => {
         <div ref={bottomRef} />
       </div>
 
-      {/* Compose */}
       <div className="mt-4 border-t border-gray-100 pt-4">
         {isOrganizer && (
           <label className="flex items-center gap-2 mb-2 cursor-pointer w-fit">

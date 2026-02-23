@@ -20,7 +20,6 @@ const OrganizerProfile = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  // Password reset request states
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetReason, setResetReason] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
@@ -140,7 +139,6 @@ const OrganizerProfile = () => {
     <div className="min-h-screen bg-gray-50">
       <Navbar />
       <div className="max-w-3xl mx-auto px-4 py-8">
-        {/* Profile Card */}
         <div className="card mb-6">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-2xl font-bold text-gray-900">Organization Profile</h1>
@@ -274,7 +272,6 @@ const OrganizerProfile = () => {
           </form>
         </div>
 
-        {/* Password Reset Card */}
         <div className="card mb-6">
           <div className="flex items-center justify-between mb-4 pb-2 border-b">
             <h2 className="text-lg font-semibold text-gray-900 flex items-center">
@@ -311,7 +308,6 @@ const OrganizerProfile = () => {
           </button>
         </div>
 
-        {/* Reset Request History */}
         <div className="card">
           <div className="flex items-center justify-between mb-4 pb-2 border-b">
             <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
@@ -331,11 +327,9 @@ const OrganizerProfile = () => {
             <div className="space-y-4">
               {resetRequests.map((request, index) => (
                 <div key={request._id} className="relative pl-6">
-                  {/* Timeline line */}
                   {index < resetRequests.length - 1 && (
                     <div className="absolute left-[9px] top-6 bottom-0 w-px bg-gray-200" />
                   )}
-                  {/* Timeline dot */}
                   <div className={`absolute left-0 top-1.5 w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center
                     ${request.status === 'approved' ? 'bg-green-100 border-green-500' :
                       request.status === 'rejected' ? 'bg-red-100 border-red-500' :
@@ -348,13 +342,11 @@ const OrganizerProfile = () => {
                     />
                   </div>
 
-                  {/* Card */}
                   <div className={`rounded-lg border p-4 ${
                     request.status === 'approved' ? 'bg-green-50 border-green-200' :
                     request.status === 'rejected' ? 'bg-red-50 border-red-200' :
                     'bg-yellow-50 border-yellow-200'
                   }`}>
-                    {/* Header row */}
                     <div className="flex items-start justify-between gap-3 mb-3">
                       <div>
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold capitalize
@@ -363,7 +355,7 @@ const OrganizerProfile = () => {
                             'bg-yellow-100 text-yellow-800'}`}>
                           {request.status === 'approved' ? '✓ Approved' :
                            request.status === 'rejected' ? '✗ Rejected' :
-                           '⏳ Pending'}
+                           'Pending'}
                         </span>
                       </div>
                       <span className="text-xs text-gray-500 whitespace-nowrap">
@@ -374,13 +366,11 @@ const OrganizerProfile = () => {
                       </span>
                     </div>
 
-                    {/* Reason */}
                     <div className="mb-3">
                       <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Your Reason</p>
                       <p className="text-sm text-gray-800">{request.reason}</p>
                     </div>
 
-                    {/* Review details */}
                     {request.status !== 'pending' && request.reviewedAt && (
                       <div className={`mt-2 pt-3 border-t ${
                         request.status === 'approved' ? 'border-green-200' : 'border-red-200'
@@ -410,7 +400,6 @@ const OrganizerProfile = () => {
                       </div>
                     )}
 
-                    {/* Pending state info */}
                     {request.status === 'pending' && (
                       <div className="mt-2 pt-3 border-t border-yellow-200">
                         <p className="text-xs text-yellow-700">
@@ -426,7 +415,6 @@ const OrganizerProfile = () => {
         </div>
       </div>
 
-      {/* Password Reset Request Modal */}
       {showResetModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full">

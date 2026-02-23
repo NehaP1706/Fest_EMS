@@ -70,7 +70,7 @@ const ClubsListing = () => {
       <Navbar />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
+        
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Clubs & Organizers</h1>
           <p className="text-gray-600 mt-2">
@@ -78,7 +78,7 @@ const ClubsListing = () => {
           </p>
         </div>
 
-        {/* Category Filter */}
+        
         <div className="mb-6">
           <div className="flex flex-wrap gap-2">
             {categories.map((category) => (
@@ -97,7 +97,7 @@ const ClubsListing = () => {
           </div>
         </div>
 
-        {/* Stats */}
+       
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="card bg-gradient-to-br from-primary-500 to-purple-600 text-white">
             <div className="flex items-center justify-between">
@@ -130,7 +130,7 @@ const ClubsListing = () => {
           </div>
         </div>
 
-        {/* Clubs Grid */}
+        
         {loading ? (
           <Loader />
         ) : filteredOrganizers.length === 0 ? (
@@ -155,7 +155,7 @@ const ClubsListing = () => {
                     isFollowing ? 'border-2 border-primary-300 bg-primary-50' : ''
                   }`}
                 >
-                  {/* Header */}
+                  
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1">
                       <h3 className="text-lg font-semibold text-gray-900">{org.name}</h3>
@@ -173,12 +173,12 @@ const ClubsListing = () => {
                     )}
                   </div>
 
-                  {/* Description */}
+                  
                   <p className="text-gray-600 text-sm mb-4 line-clamp-3 min-h-[60px]">
                     {org.description || 'No description available'}
                   </p>
 
-                  {/* Contact Info */}
+                  
                   <div className="space-y-2 mb-4 pb-4 border-b">
                     {org.contactEmail && (
                       <div className="flex items-center text-xs text-gray-600">
@@ -200,7 +200,7 @@ const ClubsListing = () => {
                     )}
                   </div>
 
-                  {/* Actions */}
+                  
                   <div className="flex gap-2">
                     <Link
                       to={`/organizer/${org._id}`}
@@ -230,7 +230,7 @@ const ClubsListing = () => {
           </div>
         )}
 
-        {/* Followed Clubs Section */}
+        
         {followedIds.length > 0 && filterCategory === 'all' && (
           <div className="mt-12">
             <div className="card bg-gradient-to-br from-primary-50 to-purple-50 border-2 border-primary-200">

@@ -79,7 +79,6 @@ const PasswordResets = () => {
           <Loader />
         ) : (
           <>
-            {/* Pending Requests */}
             {pendingRequests.length > 0 && (
               <div className="mb-8">
                 <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
@@ -131,7 +130,6 @@ const PasswordResets = () => {
               </div>
             )}
 
-            {/* New Password Display */}
             {newPassword && (
               <div className="card mb-8 bg-green-50 border-2 border-green-200">
                 <h2 className="text-xl font-semibold text-green-900 mb-4">
@@ -145,7 +143,7 @@ const PasswordResets = () => {
                     {newPassword}
                   </div>
                   <p className="text-xs text-orange-600 mt-3">
-                    ⚠️ Share this password with the organizer. It won't be shown again!
+                    Share this password with the organizer. It won't be shown again!
                   </p>
                 </div>
                 <button
@@ -157,7 +155,6 @@ const PasswordResets = () => {
               </div>
             )}
 
-            {/* Processed Requests */}
             {processedRequests.length > 0 && (
               <div>
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">
@@ -217,7 +214,6 @@ const PasswordResets = () => {
           </>
         )}
 
-        {/* Rejection Modal */}
         {selectedRequest && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg max-w-md w-full p-6">

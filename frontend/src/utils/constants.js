@@ -1,10 +1,8 @@
-// Event Types
 export const EVENT_TYPES = {
   NORMAL: 'normal',
   MERCHANDISE: 'merchandise',
 };
 
-// Event Status
 export const EVENT_STATUS = {
   DRAFT: 'draft',
   PUBLISHED: 'published',
@@ -13,14 +11,12 @@ export const EVENT_STATUS = {
   CLOSED: 'closed',
 };
 
-// Eligibility Options
 export const ELIGIBILITY_OPTIONS = [
   { value: 'all', label: 'All Participants' },
   { value: 'iiit-only', label: 'IIIT Students Only' },
   { value: 'non-iiit-only', label: 'Non-IIIT Only' },
 ];
 
-// Areas of Interest
 export const AREAS_OF_INTEREST = [
   'Technical',
   'Cultural',
@@ -35,7 +31,6 @@ export const AREAS_OF_INTEREST = [
   'Other',
 ];
 
-// Organizer Categories
 export const ORGANIZER_CATEGORIES = [
   'Technical Club',
   'Cultural Club',
@@ -47,7 +42,6 @@ export const ORGANIZER_CATEGORIES = [
   'Other',
 ];
 
-// Form Field Types
 export const FORM_FIELD_TYPES = [
   { value: 'text', label: 'Text Input' },
   { value: 'email', label: 'Email' },
@@ -60,7 +54,6 @@ export const FORM_FIELD_TYPES = [
   { value: 'date', label: 'Date' },
 ];
 
-// Payment Status
 export const PAYMENT_STATUS = {
   PENDING: 'pending',
   COMPLETED: 'completed',
@@ -68,20 +61,19 @@ export const PAYMENT_STATUS = {
   REFUNDED: 'refunded',
 };
 
-// Registration Status
 export const REGISTRATION_STATUS = {
   CONFIRMED: 'confirmed',
   CANCELLED: 'cancelled',
   REJECTED: 'rejected',
 };
 
-// Participant Types
+
 export const PARTICIPANT_TYPES = {
   IIIT: 'iiit',
   NON_IIIT: 'non-iiit',
 };
 
-// Date Format
+
 export const DATE_FORMAT = {
   DISPLAY: 'MMMM DD, YYYY',
   DISPLAY_WITH_TIME: 'MMMM DD, YYYY hh:mm A',
@@ -89,7 +81,7 @@ export const DATE_FORMAT = {
   INPUT_WITH_TIME: 'YYYY-MM-DDTHH:mm',
 };
 
-// API Response Messages
+
 export const MESSAGES = {
   SUCCESS: {
     REGISTRATION: 'Successfully registered for the event!',
@@ -108,21 +100,18 @@ export const MESSAGES = {
   },
 };
 
-// File Upload Limits
 export const FILE_UPLOAD = {
-  MAX_SIZE: 5 * 1024 * 1024, // 5MB
+  MAX_SIZE: 5 * 1024 * 1024, 
   ALLOWED_TYPES: ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'],
   ALLOWED_EXTENSIONS: ['.jpg', '.jpeg', '.png', '.pdf'],
 };
 
-// Pagination
 export const PAGINATION = {
   DEFAULT_PAGE: 1,
   DEFAULT_LIMIT: 10,
   ITEMS_PER_PAGE: [10, 25, 50, 100],
 };
 
-// Colors for Status
 export const STATUS_COLORS = {
   draft: 'bg-gray-100 text-gray-800',
   published: 'bg-green-100 text-green-800',
