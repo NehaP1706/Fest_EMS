@@ -90,6 +90,10 @@ export const registrationAPI = {
   getMyRegistrations: () => api.get('/registrations/my-registrations'),
   cancel: (registrationId) => api.delete(`/registrations/${registrationId}`),
   getEventRegistrations: (eventId) => api.get(`/registrations/event/${eventId}`),
+  submitPaymentProof: (registrationId, formData) => api.post(`/registrations/${registrationId}/payment-proof`, formData, {headers: { 'Content-Type': 'multipart/form-data' },}),
+  getPendingApprovals: (eventId) => api.get(`/registrations/event/${eventId}/pending-approvals`),
+  approveRegistration: (registrationId) => api.post(`/registrations/${registrationId}/approve`),
+  rejectRegistration: (registrationId, data) => api.post(`/registrations/${registrationId}/reject`, data),
 };
 
 export const organizerAPI = {
@@ -111,13 +115,7 @@ export const adminAPI = {
 };
 
 export const merchandiseAPI = {
-  purchase: (eventId, formData) =>
-    api.post(`/merchandise/${eventId}/purchase`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    }),
-
+  purchase: (eventId, formData) => api.post(`/merchandise/${eventId}/purchase`, formData, {headers: {'Content-Type': 'multipart/form-data',},}),
   getMyPurchases: () => api.get('/merchandise/my-purchases'),
   getPendingApprovals: () => api.get('/merchandise/pending-approvals'),
   approve: (purchaseId) => api.post(`/merchandise/${purchaseId}/approve`),

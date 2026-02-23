@@ -5,7 +5,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import Navbar from '../common/Navbar';
 import Loader from '../common/Loader';
 import DiscussionForum from '../shared/DiscussionForum';
-import { FiCalendar, FiClock, FiUsers, FiDollarSign, FiTag, FiX, FiCheck, FiShoppingCart } from 'react-icons/fi';
+import { FiCalendar, FiClock, FiUsers, FiDollarSign, FiTag, FiX, FiCheck, FiShoppingCart, FiUpload, FiAlertCircle, FiClock as FiPending } from 'react-icons/fi';
 
 const MerchandisePurchaseSection = ({ event, item, variant, onPurchaseComplete }) => {
   const [quantity, setQuantity] = useState(1);
@@ -200,6 +200,10 @@ const EventDetails = () => {
 
   const [purchaseItem, setPurchaseItem] = useState(null);
   const [purchaseVariant, setPurchaseVariant] = useState(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentProofFile, setPaymentProofFile] = useState(null);
+  const [paymentProofPreview, setPaymentProofPreview] = useState(null);
+  const [uploadingPayment, setUploadingPayment] = useState(false);
 
   useEffect(() => {
     fetchEvent();
@@ -232,14 +236,17 @@ const EventDetails = () => {
       const response = await registrationAPI.getMyRegistrations();
       const registrations = response.data.registrations || [];
       
+      // Find any non-cancelled registration for this event, regardless of paymentStatus
       const existingReg = registrations.find(reg => {
         const eventId = typeof reg.event === 'object' ? reg.event._id : reg.event;
-        const isMatchingEvent = eventId === id;
-        const isActiveRegistration = reg.status === 'confirmed';
-        
-        return isMatchingEvent && isActiveRegistration;
+        return eventId === id && reg.status !== 'cancelled';
       });
       
+      // Normalize paymentStatus: old registrations created before this field existed
+      // will have it as undefined — treat them as 'approved' since they already had tickets
+      if (existingReg && !existingReg.paymentStatus) {
+        existingReg.paymentStatus = 'approved';
+      }
       setMyRegistration(existingReg || null);
 
       const merchResponse = await merchandiseAPI.getMyPurchases();
@@ -264,9 +271,14 @@ const EventDetails = () => {
       return;
     }
 
-    if (event.customForm?.fields && event.customForm.fields.length > 0) {
+    const hasForm = event.customForm?.fields && event.customForm.fields.length > 0;
+    const hasFee  = event.registrationFee > 0;
+
+    if (hasForm || hasFee) {
+      // Show modal so user sees the fee summary before confirming
       setShowRegistrationModal(true);
     } else {
+      // Truly free + no form — register in one click
       handleRegister();
     }
   };
@@ -285,11 +297,21 @@ const EventDetails = () => {
       }
       
       const response = await registrationAPI.register(id, { formResponses: formData });
-      alert('Registration successful! Check your email for the ticket.');
       setShowRegistrationModal(false);
-      
-      setMyRegistration(response.data.registration);
-      
+
+      const reg = response.data.registration;
+      const pendingPayment = reg?.paymentStatus === 'pending_payment';
+
+      if (pendingPayment) {
+        // Paid event: form accepted, now prompt for payment proof
+        setMyRegistration({ ...reg, paymentStatus: 'pending_payment' });
+        setShowPaymentModal(true);
+      } else {
+        // Free event: ticket issued immediately
+        alert('Registration successful! Check your email for your ticket.');
+        setMyRegistration({ ...reg, paymentStatus: reg?.paymentStatus || 'approved' });
+      }
+
       await Promise.all([
         checkExistingRegistration(),
         fetchEvent()
@@ -343,6 +365,54 @@ const EventDetails = () => {
       checkExistingRegistration(),
       fetchEvent()
     ]);
+  };
+
+  const handlePaymentFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
+    if (!validTypes.includes(file.type)) {
+      alert('Please upload a JPEG, PNG, or PDF file');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      alert('File size must be less than 5MB');
+      return;
+    }
+    setPaymentProofFile(file);
+    if (file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onloadend = () => setPaymentProofPreview(reader.result);
+      reader.readAsDataURL(file);
+    } else {
+      setPaymentProofPreview(null);
+    }
+  };
+
+  const handleSubmitPaymentProof = async () => {
+    if (!paymentProofFile) {
+      alert('Please select a payment proof file');
+      return;
+    }
+    if (!myRegistration?._id) {
+      alert('Registration not found');
+      return;
+    }
+    setUploadingPayment(true);
+    try {
+      const formData = new FormData();
+      formData.append('paymentProof', paymentProofFile);
+      const response = await registrationAPI.submitPaymentProof(myRegistration._id, formData);
+      setShowPaymentModal(false);
+      setPaymentProofFile(null);
+      setPaymentProofPreview(null);
+      await checkExistingRegistration();
+      alert('Payment proof submitted! Awaiting organizer approval.');
+    } catch (error) {
+      alert(error.response?.data?.message || 'Failed to submit payment proof');
+    } finally {
+      setUploadingPayment(false);
+    }
   };
 
   const validateForm = () => {
@@ -607,25 +677,88 @@ const EventDetails = () => {
 
           {myRegistration ? (
             <div className="space-y-3">
-              <div className="bg-green-50 border-2 border-green-200 text-green-800 px-4 py-4 rounded-lg flex items-center justify-between">
-                <div className="flex items-center">
+              {myRegistration.paymentStatus === 'approved' && (
+                <div className="bg-green-50 border-2 border-green-200 text-green-800 px-4 py-4 rounded-lg flex items-center">
                   <FiCheck className="mr-3 flex-shrink-0" size={24} />
                   <div>
                     <p className="font-semibold">You're registered for this event!</p>
-                    <p className="text-sm mt-1">
-                      Ticket ID: <span className="font-mono">{myRegistration.ticketId}</span>
-                    </p>
+                    {myRegistration.ticketId && (
+                      <p className="text-sm mt-1">
+                        Ticket ID: <span className="font-mono">{myRegistration.ticketId}</span>
+                      </p>
+                    )}
                   </div>
                 </div>
-              </div>
+              )}
 
-              <button
-                onClick={handleCancelRegistration}
-                disabled={registering}
-                className="w-full btn-danger py-3 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {registering ? 'Cancelling...' : 'Cancel Registration'}
-              </button>
+              {myRegistration.paymentStatus === 'pending_payment' && (
+                <div className="space-y-3">
+                  <div className="bg-blue-50 border-2 border-blue-200 text-blue-800 px-4 py-4 rounded-lg">
+                    <div className="flex items-center mb-2">
+                      <FiCheck className="mr-3 flex-shrink-0 text-green-600" size={20} />
+                      <p className="font-semibold">Form submitted successfully!</p>
+                    </div>
+                    <p className="text-sm">
+                      This event has a registration fee of <strong>₹{event.registrationFee}</strong>.
+                      Please pay and upload your payment proof to complete registration.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowPaymentModal(true)}
+                    className="w-full flex items-center justify-center gap-2 bg-primary-600 text-white py-3 rounded-lg text-lg font-semibold hover:bg-primary-700 transition-colors"
+                  >
+                    <FiUpload size={20} />
+                    Pay ₹{event.registrationFee} & Upload Proof
+                  </button>
+                </div>
+              )}
+
+              {myRegistration.paymentStatus === 'pending_approval' && (
+                <div className="bg-yellow-50 border-2 border-yellow-200 text-yellow-800 px-4 py-4 rounded-lg">
+                  <div className="flex items-center mb-2">
+                    <FiPending className="mr-3 flex-shrink-0" size={20} />
+                    <p className="font-semibold">Payment proof submitted — awaiting approval</p>
+                  </div>
+                  <p className="text-sm">
+                    The organizer is reviewing your payment. You'll receive an email with your ticket once approved.
+                  </p>
+                </div>
+              )}
+
+              {myRegistration.paymentStatus === 'rejected' && (
+                <div className="space-y-3">
+                  <div className="bg-red-50 border-2 border-red-200 text-red-800 px-4 py-4 rounded-lg">
+                    <div className="flex items-center mb-2">
+                      <FiAlertCircle className="mr-3 flex-shrink-0" size={20} />
+                      <p className="font-semibold">Payment rejected</p>
+                    </div>
+                    {myRegistration.rejectionReason && (
+                      <p className="text-sm mt-1">
+                        <strong>Reason:</strong> {myRegistration.rejectionReason}
+                      </p>
+                    )}
+                    <p className="text-sm mt-2">Please upload a valid payment proof to try again.</p>
+                  </div>
+                  <button
+                    onClick={() => setShowPaymentModal(true)}
+                    className="w-full flex items-center justify-center gap-2 bg-primary-600 text-white py-3 rounded-lg text-lg font-semibold hover:bg-primary-700 transition-colors"
+                  >
+                    <FiUpload size={20} />
+                    Re-upload Payment Proof
+                  </button>
+                </div>
+              )}
+
+              {/* Cancel button — only meaningful before approval */}
+              {(myRegistration.paymentStatus === 'pending_payment' || myRegistration.paymentStatus === 'rejected') && (
+                <button
+                  onClick={handleCancelRegistration}
+                  disabled={registering}
+                  className="w-full btn-secondary py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {registering ? 'Cancelling...' : 'Cancel Registration'}
+                </button>
+              )}
             </div>
           ) : canRegister() ? (
             <button
@@ -633,7 +766,7 @@ const EventDetails = () => {
               disabled={registering}
               className="w-full btn-primary py-3 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {registering ? 'Registering...' : `Register Now ${event.registrationFee > 0 ? `- ₹${event.registrationFee}` : ''}`}
+              {registering ? 'Registering...' : `Register Now${event.registrationFee > 0 ? ` - ₹${event.registrationFee}` : ''}`}
             </button>
           ) : (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
@@ -822,6 +955,88 @@ const EventDetails = () => {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showPaymentModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-gray-900">Upload Payment Proof</h2>
+              <button
+                onClick={() => { setShowPaymentModal(false); setPaymentProofFile(null); setPaymentProofPreview(null); }}
+                className="text-gray-400 hover:text-gray-600"
+                disabled={uploadingPayment}
+              >
+                <FiX size={24} />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded">
+                <p className="text-sm text-blue-800">
+                  <strong>Event:</strong> {event.name}
+                </p>
+                <p className="text-sm text-blue-800 mt-1">
+                  <strong>Registration Fee:</strong>{' '}
+                  <span className="text-lg font-bold">₹{event.registrationFee}</span>
+                </p>
+              </div>
+
+              <div className="bg-yellow-50 border-l-4 border-yellow-400 p-3 rounded text-sm text-yellow-800">
+                Please pay <strong>₹{event.registrationFee}</strong> via UPI / bank transfer to the organizer,
+                then upload a screenshot or photo of the transaction below.
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Payment Screenshot / Receipt <span className="text-red-500">*</span>
+                </label>
+                <p className="text-xs text-gray-500 mb-2">JPEG, PNG, or PDF · max 5 MB</p>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/jpg,image/png,application/pdf"
+                  onChange={handlePaymentFileChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+                />
+                {paymentProofPreview && (
+                  <div className="mt-3">
+                    <p className="text-xs font-medium text-gray-600 mb-1">Preview:</p>
+                    <img
+                      src={paymentProofPreview}
+                      alt="Payment proof preview"
+                      className="max-w-full h-40 object-contain border rounded"
+                    />
+                  </div>
+                )}
+                {paymentProofFile && !paymentProofPreview && (
+                  <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-sm text-blue-800">
+                     {paymentProofFile.name} ({(paymentProofFile.size / 1024).toFixed(1)} KB)
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => { setShowPaymentModal(false); setPaymentProofFile(null); setPaymentProofPreview(null); }}
+                  className="flex-1 btn-secondary"
+                  disabled={uploadingPayment}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSubmitPaymentProof}
+                  disabled={!paymentProofFile || uploadingPayment}
+                  className="flex-1 flex items-center justify-center gap-2 bg-primary-600 text-white py-2 px-4 rounded-lg font-semibold hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {uploadingPayment ? (
+                    <span className="animate-pulse">Uploading…</span>
+                  ) : (
+                    <><FiUpload size={16} /> Submit Proof</>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>

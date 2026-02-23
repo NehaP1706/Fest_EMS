@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { eventAPI, registrationAPI, merchandiseAPI, attendanceAPI } from '../../services/api';
 import Navbar from '../common/Navbar';
 import Loader from '../common/Loader';
-import { FiEdit, FiTrash2, FiDownload, FiUsers, FiDollarSign, FiCheckCircle, FiClock, FiCalendar, FiStar, FiXCircle } from 'react-icons/fi';
+import { FiEdit, FiTrash2, FiDownload, FiUsers, FiDollarSign, FiCheckCircle, FiClock, FiCalendar, FiStar, FiXCircle, FiCheck, FiX, FiImage } from 'react-icons/fi';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import DiscussionForum from '../shared/DiscussionForum';
 
@@ -17,11 +17,21 @@ const OrganizerEventDetail = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
   const [searchTerm, setSearchTerm] = useState('');
-  const [attendanceLoading, setAttendanceLoading] = useState({}); 
+  const [attendanceLoading, setAttendanceLoading] = useState({});
+  const [pendingApprovals, setPendingApprovals] = useState([]);
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [rejectingId, setRejectingId] = useState(null);
+  const [processingApproval, setProcessingApproval] = useState({});
 
   useEffect(() => {
     fetchEventData();
   }, [id]);
+
+  useEffect(() => {
+    if (activeTab === 'approvals' && event) {
+      fetchPendingApprovals();
+    }
+  }, [activeTab, event]);
 
   const fetchEventData = async () => {
     try {
@@ -74,6 +84,49 @@ const OrganizerEventDetail = () => {
       navigate('/organizer/dashboard');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchPendingApprovals = async () => {
+    if (!event || event.registrationFee === 0) return;
+    try {
+      const res = await registrationAPI.getPendingApprovals(id);
+      setPendingApprovals(res.data.registrations || []);
+    } catch (err) {
+      console.error('Error fetching pending approvals:', err);
+    }
+  };
+
+  const handleApproveRegistration = async (registrationId) => {
+    if (!confirm('Approve this registration and send ticket to participant?')) return;
+    setProcessingApproval(prev => ({ ...prev, [registrationId]: true }));
+    try {
+      await registrationAPI.approveRegistration(registrationId);
+      setPendingApprovals(prev => prev.filter(r => r._id !== registrationId));
+      alert('Registration approved and ticket sent!');
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to approve registration');
+    } finally {
+      setProcessingApproval(prev => ({ ...prev, [registrationId]: false }));
+    }
+  };
+
+  const handleRejectRegistration = async () => {
+    if (!rejectionReason.trim()) {
+      alert('Please provide a rejection reason');
+      return;
+    }
+    setProcessingApproval(prev => ({ ...prev, [rejectingId]: true }));
+    try {
+      await registrationAPI.rejectRegistration(rejectingId, { reason: rejectionReason });
+      setPendingApprovals(prev => prev.filter(r => r._id !== rejectingId));
+      setRejectingId(null);
+      setRejectionReason('');
+      alert('Registration rejected.');
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to reject');
+    } finally {
+      setProcessingApproval(prev => ({ ...prev, [rejectingId]: false }));
     }
   };
 
@@ -356,7 +409,7 @@ const OrganizerEventDetail = () => {
         <div className="card mb-6">
           <div className="border-b border-gray-200">
             <nav className="-mb-px flex space-x-8">
-              {['overview', 'participants', 'form', 'analytics'].map((tab) => (
+              {['overview', 'participants', 'approvals', 'form', 'analytics'].map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
@@ -686,6 +739,140 @@ const OrganizerEventDetail = () => {
             </div>
           )}
 
+          {activeTab === 'approvals' && (
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="font-semibold text-gray-900 text-lg">Registration Payment Approvals</h3>
+                  <p className="text-sm text-gray-500 mt-1">Review payment proofs for this paid event.</p>
+                </div>
+                <button onClick={fetchPendingApprovals} className="text-sm text-primary-600 hover:underline">Refresh</button>
+              </div>
+
+              {event.registrationFee === 0 ? (
+                <div className="text-center py-12 text-gray-500">
+                  <FiDollarSign className="mx-auto mb-3 text-gray-300" size={48} />
+                  <p>This event has no registration fee — no approvals needed.</p>
+                </div>
+              ) : pendingApprovals.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">
+                  <FiCheckCircle className="mx-auto mb-3 text-gray-300" size={48} />
+                  <p className="font-medium">No pending approvals</p>
+                  <p className="text-sm mt-1">Payment proof submissions will appear here.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+                  {pendingApprovals.map((reg) => (
+                    <div key={reg._id} className="border border-gray-200 rounded-xl p-5 bg-white shadow-sm">
+                      <div className="mb-4">
+                        <p className="font-semibold text-gray-900">
+                          {reg.participant?.firstName} {reg.participant?.lastName}
+                        </p>
+                        <p className="text-sm text-gray-500">{reg.participant?.email}</p>
+                        {reg.participant?.contactNumber && (
+                          <p className="text-sm text-gray-500">{reg.participant?.contactNumber}</p>
+                        )}
+                        <p className="text-xs text-gray-400 mt-1">
+                          Registered: {new Date(reg.registeredAt).toLocaleDateString()}
+                        </p>
+                      </div>
+
+                      <div className="mb-4 pb-4 border-b border-gray-100">
+                        <p className="text-sm text-gray-600">
+                          Amount: <span className="font-semibold text-green-600">₹{reg.amountPaid}</span>
+                        </p>
+                      </div>
+
+                      {reg.paymentProof?.path ? (
+                        <div className="mb-4">
+                          <p className="text-sm font-medium text-gray-700 mb-2">Payment Proof:</p>
+                          <div
+                            className="cursor-pointer hover:opacity-90"
+                            onClick={() => window.open(`http://localhost:5000/${reg.paymentProof.path}`, '_blank')}
+                          >
+                            <img
+                              src={`http://localhost:5000/${reg.paymentProof.path}`}
+                              alt="Payment proof"
+                              className="w-full h-40 object-cover rounded-lg border"
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                                e.target.nextSibling.style.display = 'block';
+                              }}
+                            />
+                            <div
+                              style={{ display: 'none' }}
+                              className="p-3 bg-gray-50 text-sm text-gray-500 rounded border border-dashed text-center"
+                            >
+                              Could not load image — click to open
+                            </div>
+                          </div>
+                          <p className="text-xs text-gray-400 mt-1">
+                            Uploaded: {new Date(reg.paymentProof.uploadedAt).toLocaleString()} · Click to view full size
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="mb-4 p-3 bg-gray-50 rounded-lg text-sm text-gray-500 flex items-center gap-2">
+                          <FiImage size={16} /> No proof uploaded yet
+                        </div>
+                      )}
+
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleApproveRegistration(reg._id)}
+                          disabled={processingApproval[reg._id]}
+                          className="flex-1 flex items-center justify-center gap-1 bg-green-50 text-green-700 border border-green-200 px-3 py-2 rounded-lg text-sm font-medium hover:bg-green-100 disabled:opacity-50 transition-colors"
+                        >
+                          <FiCheck size={14} />
+                          {processingApproval[reg._id] ? 'Processing…' : 'Approve'}
+                        </button>
+                        <button
+                          onClick={() => setRejectingId(reg._id)}
+                          disabled={processingApproval[reg._id]}
+                          className="flex-1 flex items-center justify-center gap-1 bg-red-50 text-red-700 border border-red-200 px-3 py-2 rounded-lg text-sm font-medium hover:bg-red-100 disabled:opacity-50 transition-colors"
+                        >
+                          <FiX size={14} />
+                          Reject
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {rejectingId && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                  <div className="bg-white rounded-xl max-w-md w-full p-6">
+                    <h3 className="font-semibold text-gray-900 text-lg mb-2">Reject Registration</h3>
+                    <p className="text-sm text-gray-600 mb-4">Reason will be emailed to the participant.</p>
+                    <textarea
+                      value={rejectionReason}
+                      onChange={(e) => setRejectionReason(e.target.value)}
+                      rows={4}
+                      placeholder="e.g., Payment proof is unclear, incorrect amount shown..."
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-300 focus:outline-none mb-4"
+                    />
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => { setRejectingId(null); setRejectionReason(''); }}
+                        className="flex-1 btn-secondary"
+                        disabled={processingApproval[rejectingId]}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleRejectRegistration}
+                        disabled={processingApproval[rejectingId] || !rejectionReason.trim()}
+                        className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 disabled:opacity-50 font-medium text-sm"
+                      >
+                        {processingApproval[rejectingId] ? 'Rejecting…' : 'Confirm Reject'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {activeTab === 'analytics' && (
             <div className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -742,7 +929,7 @@ const OrganizerEventDetail = () => {
                 )}
               </div>
 
-\              {attendance.length > 0 && (
+              {attendance.length > 0 && (
                 <div className="mt-6">
                   <button onClick={handleExportAttendance} className="btn-secondary flex items-center">
                     <FiDownload className="mr-2" />

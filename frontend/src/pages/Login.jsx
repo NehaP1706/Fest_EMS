@@ -160,15 +160,7 @@ const Login = () => {
           </p>
         </div>
 
-        <div className="mt-8 pt-6 border-t border-gray-200">
-          <p className="text-xs text-gray-500 text-center mb-3">
-            Default Admin Credentials (for testing):
-          </p>
-          <div className="bg-gray-50 rounded-lg p-3 text-xs font-mono text-gray-700">
-            <p>Email: admin@felicity.com</p>
-            <p>Password: Admin@123456</p>
-          </div>
-          
+        <div className="mt-8 pt-6 border-t border-gray-200">          
           <div className="mt-4 p-3 bg-blue-50 rounded-lg">
             <p className="text-xs text-blue-800 text-center">
               Sessions persist for 7 days and automatically refresh when you use the app
