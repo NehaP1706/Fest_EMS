@@ -12,7 +12,6 @@ const feedbackSchema = new mongoose.Schema({
     required: true,
   },
   
-  // Feedback content
   rating: {
     type: Number,
     required: [true, 'Rating is required'],
@@ -25,7 +24,6 @@ const feedbackSchema = new mongoose.Schema({
     maxlength: 1000,
   },
   
-  // Anonymous flag
   isAnonymous: {
     type: Boolean,
     default: true,
@@ -37,7 +35,6 @@ const feedbackSchema = new mongoose.Schema({
   },
 });
 
-// Compound index - one feedback per participant per event
 feedbackSchema.index({ event: 1, participant: 1 }, { unique: true });
 feedbackSchema.index({ event: 1, rating: 1 });
 

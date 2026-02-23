@@ -15,7 +15,7 @@ const customFieldSchema = new mongoose.Schema({
     required: true,
   },
   placeholder: String,
-  options: [String], // For dropdown, checkbox, radio
+  options: [String], 
   required: {
     type: Boolean,
     default: false,
@@ -26,7 +26,6 @@ const customFieldSchema = new mongoose.Schema({
   },
 });
 
-// NEW: Merchandise item schema
 const merchandiseItemSchema = new mongoose.Schema({
   itemId: {
     type: String,
@@ -39,11 +38,11 @@ const merchandiseItemSchema = new mongoose.Schema({
   description: String,
   purchaseLimit: {
     type: Number,
-    default: 1, // per participant
+    default: 1, 
   },
   variants: [{
     variantId: String,
-    name: String, // e.g., "Large - Black"
+    name: String, 
     size: String,
     color: String,
     stock: {
@@ -78,7 +77,6 @@ const eventSchema = new mongoose.Schema({
     default: 'all',
   },
   
-  // Dates
   registrationDeadline: {
     type: Date,
     required: [true, 'Registration deadline is required'],
@@ -97,43 +95,37 @@ const eventSchema = new mongoose.Schema({
     default: false,
   },
   
-  // Limits
   registrationLimit: {
     type: Number,
-    default: null, // null means unlimited
+    default: null, 
   },
   currentRegistrations: {
     type: Number,
     default: 0,
   },
   
-  // Pricing (for normal events)
   registrationFee: {
     type: Number,
     default: 0,
   },
   
-  // Organizer
   organizer: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Organizer',
     required: true,
   },
   
-  // Tags
   tags: [{
     type: String,
     trim: true,
   }],
   
-  // Status
   status: {
     type: String,
     enum: ['draft', 'published', 'ongoing', 'completed', 'closed'],
     default: 'draft',
   },
   
-  // Custom Registration Form (for normal events)
   customForm: {
     fields: [customFieldSchema],
     isLocked: {
@@ -142,10 +134,8 @@ const eventSchema = new mongoose.Schema({
     },
   },
   
-  // NEW: Merchandise items (array of items, each with variants)
   merchandiseItems: [merchandiseItemSchema],
   
-  // Analytics
   totalRevenue: {
     type: Number,
     default: 0,
@@ -155,7 +145,6 @@ const eventSchema = new mongoose.Schema({
     default: 0,
   },
   
-  // View count for trending
   viewCount: {
     type: Number,
     default: 0,
@@ -172,19 +161,16 @@ const eventSchema = new mongoose.Schema({
   },
 });
 
-// Indexes
 eventSchema.index({ organizer: 1, status: 1 });
 eventSchema.index({ eventStartDate: 1 });
 eventSchema.index({ tags: 1 });
 eventSchema.index({ name: 'text', description: 'text' });
 
-// Update timestamp
 eventSchema.pre('save', function(next) {
   this.updatedAt = Date.now();
   next();
 });
 
-// Check if registration is allowed
 eventSchema.methods.canRegister = function() {
   const now = new Date();
   

@@ -18,7 +18,6 @@ const passwordResetRequestSchema = new mongoose.Schema({
   },
   newPassword: {
     type: String,
-    // Stored temporarily for admin to share, then cleared
   },
   adminComments: {
     type: String,
@@ -37,7 +36,6 @@ const passwordResetRequestSchema = new mongoose.Schema({
   },
 });
 
-// Index for faster queries
 passwordResetRequestSchema.index({ organizer: 1, requestedAt: -1 });
 passwordResetRequestSchema.index({ status: 1 });
 

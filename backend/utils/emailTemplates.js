@@ -1,8 +1,3 @@
-/**
- * Email Templates for Felicity EMS
- */
-
-// Base email template
 const baseTemplate = (content) => `
 <!DOCTYPE html>
 <html>
@@ -36,14 +31,13 @@ const baseTemplate = (content) => `
 </html>
 `;
 
-// Event Registration Ticket
 exports.eventRegistrationEmail = (data) => {
   const { participantName, eventName, eventDate, ticketId, qrCode, eventType } = data;
   
   const content = `
     <div class="container">
       <div class="header">
-        <h1>🎉 Registration Confirmed!</h1>
+        <h1>Registration Confirmed!</h1>
       </div>
       <div class="content">
         <p>Dear <strong>${participantName}</strong>,</p>
@@ -79,7 +73,7 @@ exports.eventRegistrationEmail = (data) => {
         </div>
         
         <div class="warning">
-          <strong>⚠️ Important:</strong> Save this email or take a screenshot of your QR code. You'll need it for entry.
+          <strong>Important:</strong> Save this email or take a screenshot of your QR code. You'll need it for entry.
         </div>
         
         <p>We look forward to seeing you at the event!</p>
@@ -95,14 +89,13 @@ exports.eventRegistrationEmail = (data) => {
   return baseTemplate(content);
 };
 
-// Merchandise Purchase Confirmation (After Approval)
 exports.merchandiseApprovalEmail = (data) => {
   const { participantName, eventName, itemName, variant, ticketId, qrCode } = data;
   
   const content = `
     <div class="container">
       <div class="header">
-        <h1>✅ Payment Approved!</h1>
+        <h1>Payment Approved!</h1>
       </div>
       <div class="content">
         <p>Dear <strong>${participantName}</strong>,</p>
@@ -148,14 +141,13 @@ exports.merchandiseApprovalEmail = (data) => {
   return baseTemplate(content);
 };
 
-// Merchandise Payment Rejection
 exports.merchandiseRejectionEmail = (data) => {
   const { participantName, itemName, reason } = data;
   
   const content = `
     <div class="container">
       <div class="header" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
-        <h1>❌ Payment Rejected</h1>
+        <h1>Payment Rejected</h1>
       </div>
       <div class="content">
         <p>Dear <strong>${participantName}</strong>,</p>
@@ -179,14 +171,13 @@ exports.merchandiseRejectionEmail = (data) => {
   return baseTemplate(content);
 };
 
-// Organizer Credentials Email
 exports.organizerCredentialsEmail = (data) => {
   const { organizerName, email, password, category } = data;
   
   const content = `
     <div class="container">
       <div class="header">
-        <h1>🔑 Welcome to Felicity EMS</h1>
+        <h1>Welcome to Felicity EMS</h1>
       </div>
       <div class="content">
         <p>Dear <strong>${organizerName}</strong>,</p>
@@ -205,7 +196,7 @@ exports.organizerCredentialsEmail = (data) => {
         </div>
         
         <div class="warning">
-          <strong>⚠️ Security Notice:</strong> Please change your password after first login for security purposes.
+          <strong>Security Notice:</strong> Please change your password after first login for security purposes.
         </div>
         
         <a href="${process.env.FRONTEND_URL}/login" class="button">Login Now</a>
@@ -221,14 +212,13 @@ exports.organizerCredentialsEmail = (data) => {
   return baseTemplate(content);
 };
 
-// Password Reset Approval Email
 exports.passwordResetEmail = (data) => {
   const { organizerName, newPassword } = data;
   
   const content = `
     <div class="container">
       <div class="header">
-        <h1>🔐 Password Reset</h1>
+        <h1>Password Reset</h1>
       </div>
       <div class="content">
         <p>Dear <strong>${organizerName}</strong>,</p>
@@ -242,7 +232,7 @@ exports.passwordResetEmail = (data) => {
         </div>
         
         <div class="warning">
-          <strong>⚠️ Action Required:</strong> Please login with this new password and change it immediately from your profile settings.
+          <strong>Action Required:</strong> Please login with this new password and change it immediately from your profile settings.
         </div>
         
         <a href="${process.env.FRONTEND_URL}/login" class="button">Login Now</a>
@@ -257,14 +247,13 @@ exports.passwordResetEmail = (data) => {
   return baseTemplate(content);
 };
 
-// New Discussion Notification
 exports.newDiscussionEmail = (data) => {
   const { participantName, eventName, messagePreview, eventId } = data;
   
   const content = `
     <div class="container">
       <div class="header">
-        <h1>💬 New Discussion Message</h1>
+        <h1>New Discussion Message</h1>
       </div>
       <div class="content">
         <p>Hi <strong>${participantName}</strong>,</p>
@@ -344,7 +333,7 @@ exports.merchandiseClaimedEmail = ({
     </head>
     <body>
       <div class="header">
-        <h1>🎉 Merchandise Claimed!</h1>
+        <h1>Merchandise Claimed!</h1>
       </div>
       
       <div class="content">
@@ -353,7 +342,7 @@ exports.merchandiseClaimedEmail = ({
         <p>Your merchandise claim has been confirmed for <strong>${eventName}</strong>.</p>
         
         <div class="details-box">
-          <h3>📦 Order Details</h3>
+          <h3>Order Details</h3>
           <p><strong>Item:</strong> ${itemName}</p>
           <p><strong>Variant:</strong> ${variant}</p>
           <p><strong>Quantity:</strong> ${quantity}</p>
@@ -361,7 +350,7 @@ exports.merchandiseClaimedEmail = ({
         
         ${issuedByOrganizer ? `
           <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0;">
-            <p><strong>ℹ️ Note:</strong> This merchandise was issued to you by the event organizer.</p>
+            <p><strong>Note:</strong> This merchandise was issued to you by the event organizer.</p>
           </div>
         ` : ''}
         
@@ -423,7 +412,7 @@ exports.merchandiseTicketEmail = ({
 <body>
   <div class="container">
     <div class="header">
-      <h1>🎫 Merchandise Ticket</h1>
+      <h1>Merchandise Ticket</h1>
       <p>Your payment has been approved!</p>
     </div>
     

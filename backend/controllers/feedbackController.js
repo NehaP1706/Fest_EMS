@@ -7,7 +7,6 @@ exports.submitFeedback = async (req, res, next) => {
     const { eventId } = req.params;
     const { rating, comment } = req.body;
 
-    // Check if participant attended the event
     const registration = await Registration.findOne({
       event: eventId,
       participant: req.user._id,
@@ -85,7 +84,6 @@ exports.getEventFeedback = async (req, res, next) => {
   }
 };
 
-// NEW: Check if user already submitted feedback
 exports.getMyFeedback = async (req, res, next) => {
   try {
     const { eventId } = req.params;

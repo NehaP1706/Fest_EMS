@@ -43,7 +43,6 @@ const userSchema = new mongoose.Schema({
     trim: true,
   },
   
-  // Preferences
   areasOfInterest: [{
     type: String,
     enum: ['Technical', 'Cultural', 'Sports', 'Literary', 'Arts', 'Gaming', 'Music', 'Dance', 'Drama', 'Photography', 'Other'],
@@ -53,7 +52,6 @@ const userSchema = new mongoose.Schema({
     ref: 'Organizer',
   }],
   
-  // Metadata
   isEmailVerified: {
     type: Boolean,
     default: false,
@@ -68,13 +66,11 @@ const userSchema = new mongoose.Schema({
   },
 });
 
-// Update timestamp on save
 userSchema.pre('save', function(next) {
   this.updatedAt = Date.now();
   next();
 });
 
-// Method to get public profile
 userSchema.methods.getPublicProfile = function() {
   return {
     _id: this._id,

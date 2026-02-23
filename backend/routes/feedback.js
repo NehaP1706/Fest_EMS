@@ -8,11 +8,8 @@ const {
   getMyFeedback,
 } = require('../controllers/feedbackController');
 
-// Participant routes
 router.post('/:eventId', protect, isParticipant, submitFeedback);
 router.get('/:eventId/my-feedback', protect, isParticipant, getMyFeedback);
-
-// Organizer routes
 router.get('/:eventId', protect, isOrganizer, getEventFeedback);
 
 module.exports = router;

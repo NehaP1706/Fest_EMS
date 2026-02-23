@@ -1,5 +1,3 @@
-// Role-based access control middleware
-
 exports.authorize = (...roles) => {
   return (req, res, next) => {
     if (!req.userRole || !roles.includes(req.userRole)) {
@@ -12,7 +10,6 @@ exports.authorize = (...roles) => {
   };
 };
 
-// Check if user is participant
 exports.isParticipant = (req, res, next) => {
   if (req.userRole !== 'participant') {
     return res.status(403).json({
@@ -23,7 +20,6 @@ exports.isParticipant = (req, res, next) => {
   next();
 };
 
-// Check if user is organizer
 exports.isOrganizer = (req, res, next) => {
   if (req.userRole !== 'organizer') {
     return res.status(403).json({
@@ -34,7 +30,6 @@ exports.isOrganizer = (req, res, next) => {
   next();
 };
 
-// Check if user is admin
 exports.isAdmin = (req, res, next) => {
   if (req.userRole !== 'admin') {
     return res.status(403).json({

@@ -12,34 +12,30 @@ const registrationSchema = new mongoose.Schema({
     required: true,
   },
   
-  // Custom form responses
   formResponses: {
     type: Map,
-    of: mongoose.Schema.Types.Mixed, // Can store strings, arrays, etc.
+    of: mongoose.Schema.Types.Mixed, 
   },
   
-  // Payment
   paymentStatus: {
     type: String,
     enum: ['pending', 'completed', 'failed', 'refunded'],
-    default: 'completed', // Since no payment gateway in this version
+    default: 'completed', 
   },
   amountPaid: {
     type: Number,
     default: 0,
   },
   
-  // Ticket
   ticketId: {
     type: String,
     unique: true,
     required: true,
   },
   qrCode: {
-    type: String, // Base64 encoded QR code
+    type: String, 
   },
   
-  // Attendance
   attended: {
     type: Boolean,
     default: false,
@@ -50,7 +46,6 @@ const registrationSchema = new mongoose.Schema({
     ref: 'Organizer',
   },
   
-  // Status
   status: {
     type: String,
     enum: ['confirmed', 'cancelled', 'rejected'],
@@ -63,10 +58,7 @@ const registrationSchema = new mongoose.Schema({
   },
 });
 
-// ticketId must always be globally unique
 registrationSchema.index({ ticketId: 1 }, { unique: true });
-
-// Index for fast lookups (not unique — a participant can re-register after cancellation)
 registrationSchema.index({ event: 1, participant: 1 });
 registrationSchema.index({ participant: 1 });
 

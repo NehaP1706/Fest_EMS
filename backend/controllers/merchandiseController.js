@@ -6,13 +6,11 @@ const { generateTicketId } = require('../utils/qrGenerator');
 const { sendEmail } = require('../config/email');
 const { merchandiseTicketEmail } = require('../utils/emailTemplates');
 
-// PARTICIPANT: Purchase merchandise with payment proof upload
 exports.purchaseMerchandise = async (req, res, next) => {
   try {
     const { eventId } = req.params;
     const { variantId, quantity } = req.body;
 
-    // Validate payment proof upload
     if (!req.file) {
       return res.status(400).json({
         success: false,
@@ -25,16 +23,10 @@ exports.purchaseMerchandise = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Event not found' });
     }
 
-    // DEBUG: Log the event structure
-    console.log('Event merchandiseItems:', event.merchandiseItems);
-    console.log('Looking for variantId:', variantId);
-
-    // Check if merchandiseItems exists
     if (!event.merchandiseItems || event.merchandiseItems.length === 0) {
       return res.status(404).json({ success: false, message: 'No merchandise items found for this event' });
     }
 
-    // Find the merchandise item and variant in merchandiseItems array
     let merchItem = null;
     let variant = null;
 
@@ -60,7 +52,6 @@ exports.purchaseMerchandise = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Merchandise item or variant not found' });
     }
 
-    // Check if participant already has a pending or approved purchase for this event
     const existingPurchase = await MerchandisePurchase.findOne({
       event: eventId,
       participant: req.user._id,
@@ -74,7 +65,6 @@ exports.purchaseMerchandise = async (req, res, next) => {
       });
     }
 
-    // Check stock availability (don't decrement yet - wait for approval)
     if (variant.stock < quantity) {
       return res.status(400).json({
         success: false,
@@ -82,10 +72,8 @@ exports.purchaseMerchandise = async (req, res, next) => {
       });
     }
 
-    // Calculate total amount
     const totalAmount = variant.price * quantity;
 
-    // Create purchase with payment proof in PENDING status
     const purchase = await MerchandisePurchase.create({
       event: eventId,
       participant: req.user._id,
@@ -125,16 +113,10 @@ exports.purchaseMerchandise = async (req, res, next) => {
   }
 };
 
-// PARTICIPANT: Claim merchandise (for registered participants)
 exports.claimMerchandise = async (req, res, next) => {
   try {
     const { registrationId } = req.params;
     const { variantId, quantity } = req.body;
-
-    console.log('=== CLAIM MERCHANDISE DEBUG ===');
-    console.log('Registration ID:', registrationId);
-    console.log('Variant ID received:', variantId);
-    console.log('Quantity:', quantity);
 
     const registration = await Registration.findById(registrationId).populate('event');
     if (!registration) {
@@ -146,18 +128,12 @@ exports.claimMerchandise = async (req, res, next) => {
     }
 
     const event = registration.event;
-    console.log('Event ID:', event._id);
-    console.log('Event Type:', event.eventType);
-    console.log('Has merchandiseItems?', !!event.merchandiseItems);
-    console.log('merchandiseItems length:', event.merchandiseItems?.length);
 
-    // Check if merchandiseItems exists
     if (!event.merchandiseItems || event.merchandiseItems.length === 0) {
       console.log('ERROR: No merchandiseItems found');
       return res.status(404).json({ success: false, message: 'No merchandise items found for this event' });
     }
 
-    // Find the merchandise item and variant in merchandiseItems array
     let merchItem = null;
     let variant = null;
 
@@ -204,7 +180,6 @@ exports.claimMerchandise = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Insufficient stock' });
     }
 
-    // Check if already claimed
     const existingClaim = await MerchandisePurchase.findOne({
       registration: registrationId,
       'variant.variantId': variantId,
@@ -220,7 +195,6 @@ exports.claimMerchandise = async (req, res, next) => {
 
     const totalAmount = variant.price * quantity;
 
-    // Generate ticket immediately for claims
     const ticketId = generateTicketId();
     const qrData = {
       ticketId,
@@ -245,7 +219,6 @@ exports.claimMerchandise = async (req, res, next) => {
       margin: 1,
     });
 
-    // Create purchase (auto-approved for claims)
     const purchase = await MerchandisePurchase.create({
       event: event._id,
       participant: req.user._id,
@@ -270,11 +243,9 @@ exports.claimMerchandise = async (req, res, next) => {
       qrCode: qrCodeDataURL,
     });
 
-    // Decrement stock
     variant.stock -= quantity;
     await event.save();
 
-    // Send email with QR code
     await sendEmail({
       to: req.user.email,
       subject: `Merchandise Ticket - ${event.name}`,
@@ -311,9 +282,6 @@ exports.claimMerchandise = async (req, res, next) => {
   }
 };
 
-// Continue with the rest of the functions (issueMerchandise, getMyPurchases, etc.)
-// They remain the same as in the FIXED version...
-
 exports.issueMerchandise = async (req, res, next) => {
   try {
     const { eventId } = req.params;
@@ -328,7 +296,6 @@ exports.issueMerchandise = async (req, res, next) => {
       return res.status(403).json({ success: false, message: 'Not authorized' });
     }
 
-    // Find the merchandise item and variant in merchandiseItems array
     let merchItem = null;
     let variant = null;
 
@@ -357,7 +324,6 @@ exports.issueMerchandise = async (req, res, next) => {
 
     const totalAmount = variant.price * quantity;
 
-    // Generate ticket
     const ticketId = generateTicketId();
     const qrData = {
       ticketId,
@@ -382,7 +348,6 @@ exports.issueMerchandise = async (req, res, next) => {
       margin: 1,
     });
 
-    // Create purchase (issued by organizer)
     const purchase = await MerchandisePurchase.create({
       event: event._id,
       participant: participantId,
@@ -407,11 +372,9 @@ exports.issueMerchandise = async (req, res, next) => {
       qrCode: qrCodeDataURL,
     });
 
-    // Decrement stock
     variant.stock -= quantity;
     await event.save();
 
-    // Send email
     await sendEmail({
       to: participant.email,
       subject: `Merchandise Issued - ${event.name}`,
@@ -508,40 +471,28 @@ exports.getEventPurchases = async (req, res, next) => {
 exports.approvePurchase = async (req, res, next) => {
   try {
     const { purchaseId } = req.params;
-    console.log('\n=== APPROVE PURCHASE DEBUG ===');
-    console.log('1. purchaseId:', purchaseId);
-    console.log('2. organizer:', req.organizer?._id);
 
     const purchase = await MerchandisePurchase.findById(purchaseId)
       .populate('event')
       .populate('participant', 'firstName lastName email');
 
-    console.log('3. purchase found:', !!purchase);
     if (!purchase) {
       return res.status(404).json({ success: false, message: 'Purchase not found' });
     }
 
-    console.log('4. paymentStatus:', purchase.paymentStatus);
-    console.log('5. event organizer:', purchase.event?.organizer?.toString());
-    console.log('6. req organizer:', req.organizer?._id?.toString());
-
     const event = purchase.event;
     if (event.organizer.toString() !== req.organizer._id.toString()) {
-      console.log('7. FAILED: Not authorized');
       return res.status(403).json({ success: false, message: 'Not authorized' });
     }
 
     if (purchase.paymentStatus !== 'pending') {
-      console.log('7. FAILED: Already processed');
       return res.status(400).json({
         success: false,
         message: 'Purchase has already been processed',
       });
     }
 
-    console.log('7. Generating ticket...');
     const ticketId = generateTicketId();
-    console.log('8. ticketId:', ticketId);
 
     const qrData = {
       ticketId,
@@ -552,14 +503,12 @@ exports.approvePurchase = async (req, res, next) => {
       variant: purchase.variant.name,
     };
 
-    console.log('9. Generating QR code...');
     const qrCodeDataURL = await QRCode.toDataURL(JSON.stringify(qrData), {
       errorCorrectionLevel: 'H',
       type: 'image/png',
       width: 300,
       margin: 1,
     });
-    console.log('10. QR dataURL generated:', !!qrCodeDataURL);
 
     const qrCodeBuffer = await QRCode.toBuffer(JSON.stringify(qrData), {
       errorCorrectionLevel: 'H',
@@ -567,18 +516,14 @@ exports.approvePurchase = async (req, res, next) => {
       width: 300,
       margin: 1,
     });
-    console.log('11. QR buffer generated:', !!qrCodeBuffer);
 
-    console.log('12. Saving purchase...');
     purchase.paymentStatus = 'approved';
     purchase.reviewedBy = req.organizer._id;
     purchase.reviewedAt = new Date();
     purchase.ticketId = ticketId;
     purchase.qrCode = qrCodeDataURL;
     await purchase.save();
-    console.log('13. Purchase saved OK');
 
-    // Decrement stock - inline search across all merchandiseItems
     let stockDecremented = false;
     for (const item of (event.merchandiseItems || [])) {
       const sv = item.variants.find(
@@ -587,17 +532,12 @@ exports.approvePurchase = async (req, res, next) => {
       if (sv) {
         sv.stock = Math.max(0, sv.stock - purchase.quantity);
         await event.save();
-        console.log('14. Stock decremented OK, new stock:', sv.stock);
         stockDecremented = true;
         break;
       }
     }
-    if (!stockDecremented) {
-      console.log('14. WARNING: variant not found for stock decrement, variantId:', purchase.variant.variantId);
-    }
+    
 
-    // Send email (non-blocking)
-    console.log('15. Sending email to:', purchase.participant.email);
     try {
       await sendEmail({
         to: purchase.participant.email,
@@ -613,22 +553,16 @@ exports.approvePurchase = async (req, res, next) => {
         }),
         attachments: [{ filename: 'qrcode.png', content: qrCodeBuffer, cid: 'qrcode' }],
       });
-      console.log('16. Email sent OK');
     } catch (emailError) {
-      console.error('16. Email FAILED (non-fatal):', emailError.message);
+      console.error('Email FAILED (non-fatal):', emailError.message);
     }
 
-    console.log('17. Sending success response');
     res.json({
       success: true,
       message: 'Payment approved and ticket generated successfully',
       purchase,
     });
   } catch (error) {
-    console.error('=== APPROVE PURCHASE CRASHED ===');
-    console.error('Error name:', error.name);
-    console.error('Error message:', error.message);
-    console.error('Error stack:', error.stack);
     next(error);
   }
 };

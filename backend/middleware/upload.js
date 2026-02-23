@@ -2,7 +2,6 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-// Ensure upload directories exist
 const uploadDirs = [
   'uploads/payment-proofs',
   'uploads/registration-files',
@@ -15,10 +14,9 @@ uploadDirs.forEach(dir => {
   }
 });
 
-// Configure storage for payment proofs
 const paymentProofStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'uploads/payment-proofs'); // Relative path, no leading slash
+    cb(null, 'uploads/payment-proofs'); 
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
@@ -26,7 +24,6 @@ const paymentProofStorage = multer.diskStorage({
   },
 });
 
-// File filter for images and PDFs only
 const fileFilter = (req, file, cb) => {
   const allowedTypes = /jpeg|jpg|png|pdf/;
   const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
@@ -39,10 +36,9 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
-// Export middleware
 const uploadPaymentProof = multer({
   storage: paymentProofStorage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB max
+  limits: { fileSize: 5 * 1024 * 1024 }, 
   fileFilter: fileFilter,
 }).single('paymentProof');
 

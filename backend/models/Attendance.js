@@ -16,7 +16,6 @@ const attendanceSchema = new mongoose.Schema({
     required: true,
   },
   
-  // Attendance details
   scannedAt: {
     type: Date,
     default: Date.now,
@@ -27,19 +26,16 @@ const attendanceSchema = new mongoose.Schema({
     required: true,
   },
   
-  // Manual override
   isManualEntry: {
     type: Boolean,
     default: false,
   },
   manualEntryReason: String,
   
-  // Audit
-  scannerDevice: String, // Browser/device info
-  scanLocation: String, // Optional
+  scannerDevice: String, 
+  scanLocation: String, 
 });
 
-// Prevent duplicate scans
 attendanceSchema.index({ event: 1, participant: 1 }, { unique: true });
 attendanceSchema.index({ ticketId: 1 });
 

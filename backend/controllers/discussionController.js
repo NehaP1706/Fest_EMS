@@ -2,33 +2,28 @@ const Discussion = require('../models/Discussion');
 const Event = require('../models/Event');
 const Registration = require('../models/Registration');
 
-// Helper: determine if requester is organizer of the event
 const isEventOrganizer = (event, req) => {
   if (!req.organizer) return false;
   return event.organizer.toString() === req.organizer._id.toString();
 };
 
-// Helper: populate author fields
 const POPULATE = [
   { path: 'author', select: 'firstName lastName name email' },
 ];
 
-// GET /api/discussions/:eventId
-// Returns pinned messages first, then chronological. Includes reply counts.
 exports.getMessages = async (req, res, next) => {
   try {
     const { eventId } = req.params;
 
     const messages = await Discussion.find({
       event: eventId,
-      parentMessage: null, // top-level only
+      parentMessage: null, 
       isDeleted: false,
     })
       .populate(POPULATE)
       .sort({ isPinned: -1, isAnnouncement: -1, createdAt: 1 })
       .lean();
 
-    // Attach reply counts and full replies
     const ids = messages.map(m => m._id);
     const replies = await Discussion.find({
       parentMessage: { $in: ids },
@@ -57,64 +52,40 @@ exports.getMessages = async (req, res, next) => {
   }
 };
 
-// POST /api/discussions/:eventId
-// Post a new top-level message
 exports.postMessage = async (req, res, next) => {
-  try {
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('📝 postMessage called');
-    console.log('EventID from params:', req.params.eventId);
-    console.log('Body:', req.body);
-    console.log('req.user:', req.user ? `EXISTS (${req.user.email})` : 'UNDEFINED');
-    console.log('req.organizer:', req.organizer ? `EXISTS (${req.organizer.name})` : 'UNDEFINED');
-    
+  try {    
     const { eventId } = req.params;
     const { content, message: messageText, isAnnouncement } = req.body;
     
-    // Support both 'content' and 'message' field names for backward compatibility
     const messageContent = content || messageText;
 
-    console.log('Content:', messageContent);
-    console.log('Content length:', messageContent?.trim().length);
-
     if (!messageContent || messageContent.trim().length === 0) {
-      console.log('❌ ERROR: Content is empty');
       return res.status(400).json({ success: false, message: 'Message content is required' });
     }
 
     const event = await Event.findById(eventId);
     if (!event) {
-      console.log('❌ ERROR: Event not found');
       return res.status(404).json({ success: false, message: 'Event not found' });
     }
 
-    console.log('✅ Event found:', event.name);
-
-    // Determine author type and permissions
     let authorModel, authorId, authorName;
 
     if (req.organizer) {
       authorModel = 'Organizer';
       authorId = req.organizer._id;
       authorName = req.organizer.name || 'Organizer';
-      console.log('👤 Author: Organizer -', authorName);
     } else if (req.user) {
       authorModel = 'User';
       authorId = req.user._id;
       authorName = `${req.user.firstName} ${req.user.lastName}`;
-      console.log('👤 Author: User -', authorName);
     } else {
-      console.log('❌ ERROR: No user or organizer');
       return res.status(401).json({ success: false, message: 'Not authenticated' });
     }
 
-    // Only organizers can post announcements
     if (isAnnouncement && authorModel !== 'Organizer') {
-      console.log('❌ ERROR: Non-organizer trying to post announcement');
       return res.status(403).json({ success: false, message: 'Only organizers can post announcements' });
     }
 
-    console.log('📨 Creating message...');
     const discussionMessage = await Discussion.create({
       event: eventId,
       author: authorId,
@@ -124,27 +95,19 @@ exports.postMessage = async (req, res, next) => {
       isAnnouncement: isAnnouncement && authorModel === 'Organizer',
     });
 
-    console.log('✅ Message created:', discussionMessage._id);
-
     await discussionMessage.populate([
       { path: 'author', select: 'firstName lastName name email' },
     ]);
 
-    console.log('✅ Message populated');
-
-    // Emit via socket.io
     const io = req.app.get('io');
     if (io) {
-      console.log('📡 Emitting socket event to room: event-' + eventId);
       io.to(`event-${eventId}`).emit('new-message', {
         ...discussionMessage.toObject(),
         replies: [],
         replyCount: 0,
       });
 
-      // Notification for announcements
       if (discussionMessage.isAnnouncement) {
-        console.log('📢 Emitting announcement');
         io.to(`event-${eventId}`).emit('announcement', {
           messageId: discussionMessage._id,
           content: discussionMessage.content,
@@ -152,22 +115,15 @@ exports.postMessage = async (req, res, next) => {
         });
       }
     } else {
-      console.log('⚠️ Socket.IO not available');
+      console.log('Socket.IO not available');
     }
-
-    console.log('✅ Success! Sending response');
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
     res.status(201).json({ success: true, message: discussionMessage });
   } catch (error) {
-    console.error('❌ ERROR in postMessage:', error);
     next(error);
   }
 };
 
-
-// POST /api/discussions/:messageId/reply
-// Post a reply to an existing message
 exports.postReply = async (req, res, next) => {
   try {
     const { messageId } = req.params;
@@ -220,8 +176,6 @@ exports.postReply = async (req, res, next) => {
   }
 };
 
-// DELETE /api/discussions/:messageId
-// Organizers can delete any message; users can delete their own
 exports.deleteMessage = async (req, res, next) => {
   try {
     const { messageId } = req.params;
@@ -253,8 +207,6 @@ exports.deleteMessage = async (req, res, next) => {
   }
 };
 
-// POST /api/discussions/:messageId/pin
-// Toggle pin — organizers only
 exports.pinMessage = async (req, res, next) => {
   try {
     const { messageId } = req.params;
@@ -285,8 +237,6 @@ exports.pinMessage = async (req, res, next) => {
   }
 };
 
-// POST /api/discussions/:messageId/react
-// Toggle a reaction emoji
 exports.reactToMessage = async (req, res, next) => {
   try {
     const { messageId } = req.params;
@@ -313,7 +263,6 @@ exports.reactToMessage = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Message not found' });
     }
 
-    // Toggle: remove if already reacted with same emoji, else add
     const existingIdx = message.reactions.findIndex(
       r => r.user.toString() === userId.toString() && r.emoji === emoji
     );
@@ -321,7 +270,6 @@ exports.reactToMessage = async (req, res, next) => {
     if (existingIdx >= 0) {
       message.reactions.splice(existingIdx, 1);
     } else {
-      // Remove any other emoji from this user first (one reaction per user)
       const otherIdx = message.reactions.findIndex(
         r => r.user.toString() === userId.toString()
       );
@@ -331,7 +279,6 @@ exports.reactToMessage = async (req, res, next) => {
 
     await message.save();
 
-    // Summarize reactions as { emoji: count }
     const summary = {};
     message.reactions.forEach(r => {
       summary[r.emoji] = (summary[r.emoji] || 0) + 1;
@@ -342,7 +289,7 @@ exports.reactToMessage = async (req, res, next) => {
       io.to(`event-${message.event}`).emit('reaction-updated', {
         messageId,
         reactions: summary,
-        userReaction: existingIdx >= 0 ? null : emoji, // null = removed
+        userReaction: existingIdx >= 0 ? null : emoji, 
       });
     }
 
@@ -352,8 +299,6 @@ exports.reactToMessage = async (req, res, next) => {
   }
 };
 
-// POST /api/discussions/:eventId/mark-read
-// Mark all messages as read for notification badge clearing
 exports.markRead = async (req, res, next) => {
   try {
     const { eventId } = req.params;
@@ -371,7 +316,6 @@ exports.markRead = async (req, res, next) => {
   }
 };
 
-// GET /api/discussions/:eventId/unread-count
 exports.getUnreadCount = async (req, res, next) => {
   try {
     const { eventId } = req.params;

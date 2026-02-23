@@ -34,7 +34,6 @@ exports.createOrganizer = async (req, res, next) => {
       createdBy: req.user._id,
     });
 
-    // Send credentials email
     await sendEmail({
       to: contactEmail,
       subject: 'Your Felicity Organizer Account',
@@ -67,7 +66,6 @@ exports.getAllOrganizersAdmin = async (req, res, next) => {
     const filter = {};
 
     if (status && ['active', 'disabled', 'archived'].includes(status)) {
-      // Use a Regular Expression to match "active" OR "\"active\""
       filter.status = { $regex: new RegExp(`^"?${status}"?$`, 'i') };
     }
 
@@ -85,7 +83,6 @@ exports.getAllOrganizersAdmin = async (req, res, next) => {
   }
 };
 
-// Disable organizer (soft disable)
 exports.disableOrganizer = async (req, res, next) => {
   try {
     const organizer = await Organizer.findById(req.params.id);
@@ -115,7 +112,6 @@ exports.disableOrganizer = async (req, res, next) => {
   }
 };
 
-// Enable organizer
 exports.enableOrganizer = async (req, res, next) => {
   try {
     const organizer = await Organizer.findById(req.params.id);
@@ -152,7 +148,6 @@ exports.enableOrganizer = async (req, res, next) => {
   }
 };
 
-// Archive organizer
 exports.archiveOrganizer = async (req, res, next) => {
   try {
     const { reason } = req.body;
@@ -186,7 +181,6 @@ exports.archiveOrganizer = async (req, res, next) => {
   }
 };
 
-// Unarchive organizer
 exports.unarchiveOrganizer = async (req, res, next) => {
   try {
     const organizer = await Organizer.findById(req.params.id);
@@ -199,7 +193,7 @@ exports.unarchiveOrganizer = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Organizer is not archived' });
     }
 
-    organizer.status = 'disabled'; // Unarchive to disabled state for safety
+    organizer.status = 'disabled'; 
     organizer.archivedAt = undefined;
     organizer.archivedBy = undefined;
     organizer.archiveReason = undefined;
@@ -219,7 +213,6 @@ exports.unarchiveOrganizer = async (req, res, next) => {
   }
 };
 
-// Hard delete organizer (permanent deletion)
 exports.deleteOrganizer = async (req, res, next) => {
   try {
     const { confirmDelete } = req.body;
@@ -237,10 +230,8 @@ exports.deleteOrganizer = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Organizer not found' });
     }
 
-    // Delete associated password reset requests
     await PasswordResetRequest.deleteMany({ organizer: organizer._id });
 
-    // Hard delete the organizer
     await Organizer.findByIdAndDelete(req.params.id);
 
     res.json({ 
@@ -256,7 +247,6 @@ exports.deleteOrganizer = async (req, res, next) => {
   }
 };
 
-// Legacy method - redirects to disable
 exports.deleteOrganizerLegacy = async (req, res, next) => {
   return exports.disableOrganizer(req, res, next);
 };
@@ -290,11 +280,9 @@ exports.approvePasswordReset = async (req, res, next) => {
     request.reviewedAt = new Date();
     await request.save();
 
-    // Update organizer password
     request.organizer.password = hashedPassword;
     await request.organizer.save();
 
-    // Send email
     await sendEmail({
       to: request.organizer.email,
       subject: 'Password Reset Approved',

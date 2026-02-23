@@ -7,8 +7,13 @@ exports.registerParticipant = async (req, res, next) => {
   try {
     const { firstName, lastName, email, password, participantType, collegeName, contactNumber } = req.body;
 
-    if (participantType === 'iiit' && !email.endsWith('@iiit.ac.in')) {
-      return res.status(400).json({ success: false, message: 'IIIT participants must use @iiit.ac.in email' });
+    const IIIT_DOMAINS = ['@iiit.ac.in', '@students.iiit.ac.in', '@research.iiit.ac.in'];
+
+    if (participantType === 'iiit' && !IIIT_DOMAINS.some(domain => email.endsWith(domain))) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'IIIT participants must use an @iiit.ac.in, @students.iiit.ac.in, or @research.iiit.ac.in email' 
+      });
     }
 
     const userExists = await User.findOne({ email });
@@ -22,8 +27,7 @@ exports.registerParticipant = async (req, res, next) => {
       password: hashedPassword,
       role: 'participant',
       participantType, collegeName, contactNumber,
-      isEmailVerified: participantType === 'iiit',
-    });
+      isEmailVerified: participantType === 'iiit' && IIIT_DOMAINS.some(domain => email.endsWith(domain)),    });
 
     const token = generateToken(user._id, 'participant');
     res.status(201).json({ success: true, token, user: user.getPublicProfile() });

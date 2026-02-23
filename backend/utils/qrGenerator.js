@@ -1,10 +1,5 @@
 const QRCode = require('qrcode');
 
-/**
- * Generate QR code from ticket data
- * @param {Object} ticketData - Data to encode in QR code
- * @returns {Promise<string>} Base64 encoded QR code image
- */
 const generateQR = async (ticketData) => {
   try {
     const qrString = JSON.stringify(ticketData);
@@ -28,21 +23,12 @@ const generateQR = async (ticketData) => {
   }
 };
 
-/**
- * Generate unique ticket ID
- * @returns {string} Unique ticket ID
- */
 const generateTicketId = () => {
   const timestamp = Date.now().toString(36);
   const randomStr = Math.random().toString(36).substring(2, 9);
   return `TKT-${timestamp}-${randomStr}`.toUpperCase();
 };
 
-/**
- * Decode QR code data
- * @param {string} qrData - QR code data string
- * @returns {Object} Parsed ticket data
- */
 const decodeQR = (qrData) => {
   try {
     return JSON.parse(qrData);

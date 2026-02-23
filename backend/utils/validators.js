@@ -1,32 +1,13 @@
-/**
- * Validation utilities for the Felicity Event Management System
- */
-
-/**
- * Validate IIIT email domain
- * @param {string} email - Email to validate
- * @returns {boolean} True if valid IIIT email
- */
 const isIIITEmail = (email) => {
   const iiitDomains = ['@iiit.ac.in', '@students.iiit.ac.in', '@research.iiit.ac.in'];
   return iiitDomains.some(domain => email.toLowerCase().endsWith(domain));
 };
 
-/**
- * Validate email format
- * @param {string} email - Email to validate
- * @returns {boolean} True if valid email format
- */
 const isValidEmail = (email) => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email);
 };
 
-/**
- * Validate password strength
- * @param {string} password - Password to validate
- * @returns {Object} Validation result with isValid and message
- */
 const validatePassword = (password) => {
   if (!password || password.length < 6) {
     return {
@@ -34,35 +15,18 @@ const validatePassword = (password) => {
       message: 'Password must be at least 6 characters long',
     };
   }
-
-  // Optional: Add more password requirements
-  // const hasUpperCase = /[A-Z]/.test(password);
-  // const hasLowerCase = /[a-z]/.test(password);
-  // const hasNumber = /\d/.test(password);
-  
   return {
     isValid: true,
     message: 'Password is valid',
   };
 };
 
-/**
- * Validate phone number (Indian format)
- * @param {string} phone - Phone number to validate
- * @returns {boolean} True if valid phone number
- */
 const isValidPhone = (phone) => {
   const phoneRegex = /^[6-9]\d{9}$/;
   return phoneRegex.test(phone.replace(/[\s-]/g, ''));
 };
 
-/**
- * Validate event dates
- * @param {Date} registrationDeadline - Registration deadline
- * @param {Date} eventStartDate - Event start date
- * @param {Date} eventEndDate - Event end date
- * @returns {Object} Validation result
- */
+
 const validateEventDates = (registrationDeadline, eventStartDate, eventEndDate) => {
   const now = new Date();
   const regDeadline = new Date(registrationDeadline);
@@ -96,11 +60,6 @@ const validateEventDates = (registrationDeadline, eventStartDate, eventEndDate) 
   };
 };
 
-/**
- * Validate registration form field
- * @param {Object} field - Form field object
- * @returns {Object} Validation result
- */
 const validateFormField = (field) => {
   const validFieldTypes = ['text', 'email', 'number', 'textarea', 'dropdown', 'checkbox', 'radio', 'file', 'date'];
   
@@ -131,28 +90,19 @@ const validateFormField = (field) => {
   };
 };
 
-/**
- * Validate custom form responses against form definition
- * @param {Object} formResponses - User's form responses
- * @param {Array} formFields - Event's custom form fields
- * @returns {Object} Validation result
- */
 const validateFormResponses = (formResponses, formFields) => {
   const errors = [];
 
   for (const field of formFields) {
     const response = formResponses[field.fieldId];
 
-    // Check required fields
     if (field.required && (!response || response === '')) {
       errors.push(`${field.label} is required`);
       continue;
     }
 
-    // Skip validation if field is not required and empty
     if (!response) continue;
 
-    // Validate by field type
     switch (field.fieldType) {
       case 'email':
         if (!isValidEmail(response)) {
@@ -193,13 +143,6 @@ const validateFormResponses = (formResponses, formFields) => {
   };
 };
 
-/**
- * Validate file upload
- * @param {Object} file - Uploaded file object
- * @param {Array} allowedTypes - Allowed MIME types
- * @param {number} maxSize - Max file size in bytes
- * @returns {Object} Validation result
- */
 const validateFileUpload = (file, allowedTypes = [], maxSize = 5 * 1024 * 1024) => {
   if (!file) {
     return {
@@ -228,12 +171,6 @@ const validateFileUpload = (file, allowedTypes = [], maxSize = 5 * 1024 * 1024) 
   };
 };
 
-/**
- * Validate eligibility for event
- * @param {string} eventEligibility - Event eligibility requirement
- * @param {string} participantType - Participant type (iiit/non-iiit)
- * @returns {boolean} True if participant is eligible
- */
 const checkEligibility = (eventEligibility, participantType) => {
   if (eventEligibility === 'all') return true;
   if (eventEligibility === 'iiit-only') return participantType === 'iiit';
@@ -241,32 +178,16 @@ const checkEligibility = (eventEligibility, participantType) => {
   return false;
 };
 
-/**
- * Sanitize string input
- * @param {string} str - String to sanitize
- * @returns {string} Sanitized string
- */
 const sanitizeString = (str) => {
   if (typeof str !== 'string') return '';
   return str.trim().replace(/[<>]/g, '');
 };
 
-/**
- * Validate object ID format (MongoDB)
- * @param {string} id - ID to validate
- * @returns {boolean} True if valid ObjectId
- */
 const isValidObjectId = (id) => {
   const objectIdPattern = /^[0-9a-fA-F]{24}$/;
   return objectIdPattern.test(id);
 };
 
-/**
- * Validate merchandise variant selection
- * @param {Object} variant - Selected variant
- * @param {Array} availableVariants - Available variants from event
- * @returns {Object} Validation result
- */
 const validateMerchandiseVariant = (variant, availableVariants) => {
   if (!variant || !variant.variantId) {
     return {
@@ -305,11 +226,6 @@ const validateMerchandiseVariant = (variant, availableVariants) => {
   };
 };
 
-/**
- * Validate search query
- * @param {string} query - Search query
- * @returns {Object} Validation result
- */
 const validateSearchQuery = (query) => {
   if (!query || query.trim().length === 0) {
     return {

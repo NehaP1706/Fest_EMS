@@ -12,19 +12,16 @@ const merchandisePurchaseSchema = new mongoose.Schema({
     required: true,
   },
   
-  // Link to registration (for claim workflow)
   registration: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Registration',
   },
   
-  // Merchandise item details
   merchandiseItem: {
     itemId: String,
     itemName: String,
   },
   
-  // Variant selected
   variant: {
     variantId: String,
     name: String,
@@ -44,14 +41,12 @@ const merchandisePurchaseSchema = new mongoose.Schema({
     required: true,
   },
   
-  // Payment Proof Upload (for old payment workflow)
   paymentProof: {
     filename: String,
     path: String,
     uploadedAt: Date,
   },
   
-  // Approval Workflow
   paymentStatus: {
     type: String,
     enum: ['pending', 'approved', 'rejected'],
@@ -64,32 +59,28 @@ const merchandisePurchaseSchema = new mongoose.Schema({
   reviewedAt: Date,
   rejectionReason: String,
   
-  // NEW: Claim Type
   claimType: {
     type: String,
-    enum: ['participant', 'organizer', 'payment'], // payment = old workflow
+    enum: ['participant', 'organizer', 'payment'], 
     default: 'payment',
   },
   
-  // NEW: Claim/Issue timestamps
-  claimedAt: Date,    // When participant claimed
-  issuedBy: {          // If organizer issued
+  claimedAt: Date,    
+  issuedBy: {          
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Organizer',
   },
   issuedAt: Date,
   
-  // Ticket (generated after approval/claim/issue)
   ticketId: {
     type: String,
     unique: true,
-    sparse: true, // Allows null values
+    sparse: true,
   },
   qrCode: {
-    type: String, // Base64 encoded QR code
+    type: String, 
   },
   
-  // Attendance
   attended: {
     type: Boolean,
     default: false,
@@ -102,7 +93,6 @@ const merchandisePurchaseSchema = new mongoose.Schema({
   },
 });
 
-// Compound indexes
 merchandisePurchaseSchema.index({ event: 1, participant: 1 });
 merchandisePurchaseSchema.index({ paymentStatus: 1 });
 merchandisePurchaseSchema.index({ claimType: 1 });

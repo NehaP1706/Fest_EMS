@@ -10,7 +10,6 @@ exports.scanQRCode = async (req, res, next) => {
 
     const decoded = decodeQR(qrData);
 
-    // Find registration or purchase
     let registration = await Registration.findOne({ ticketId: decoded.ticketId });
     let purchase = await MerchandisePurchase.findOne({ ticketId: decoded.ticketId });
 
@@ -24,7 +23,6 @@ exports.scanQRCode = async (req, res, next) => {
     const record = registration || purchase;
     const participantId = record.participant;
 
-    // Check if already scanned
     const existingAttendance = await Attendance.findOne({
       event: eventId,
       participant: participantId,
@@ -38,7 +36,6 @@ exports.scanQRCode = async (req, res, next) => {
       });
     }
 
-    // Mark attendance
     const attendance = await Attendance.create({
       event: eventId,
       participant: participantId,
@@ -47,7 +44,6 @@ exports.scanQRCode = async (req, res, next) => {
       scannerDevice: req.headers['user-agent'],
     });
 
-    // Update registration/purchase
     if (registration) {
       registration.attended = true;
       registration.attendedAt = new Date();
@@ -58,7 +54,6 @@ exports.scanQRCode = async (req, res, next) => {
       await purchase.save();
     }
 
-    // Update event attendance count
     await Event.findByIdAndUpdate(eventId, { $inc: { totalAttendance: 1 } });
 
     res.json({
@@ -125,14 +120,13 @@ exports.exportAttendance = async (req, res, next) => {
       .populate('participant', 'firstName lastName email contactNumber')
       .populate('event', 'name');
 
-    // Create the CSV data with headers explicitly defined
     const headers = ['Name', 'Email', 'Contact', 'Ticket ID', 'Timestamp', 'Method'];
     const rows = attendances.map(a => [
       `"${a.participant.firstName} ${a.participant.lastName}"`,
       `"${a.participant.email}"`,
       `"${a.participant.contactNumber || 'N/A'}"`,
       `"${a.ticketId}"`,
-      `"${new Date(a.scannedAt).toLocaleString()}"`, // Added Timestamp
+      `"${new Date(a.scannedAt).toLocaleString()}"`, 
       `"${a.isManualEntry ? 'Manual' : 'QR Scan'}"`
     ]);
 
@@ -158,10 +152,8 @@ exports.removeAttendance = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Attendance record not found' });
     }
 
-    // Decrement event attendance count
     await Event.findByIdAndUpdate(eventId, { $inc: { totalAttendance: -1 } });
 
-    // Revert attended flag on registration or purchase
     const Registration = require('../models/Registration');
     const MerchandisePurchase = require('../models/MerchandisePurchase');
 

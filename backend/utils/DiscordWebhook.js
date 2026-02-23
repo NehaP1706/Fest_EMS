@@ -1,35 +1,18 @@
 const axios = require('axios');
 
-/**
- * Send event notification to Discord webhook
- * @param {String} webhookUrl - Discord webhook URL
- * @param {Object} event - Event object
- * @param {Object} organizer - Organizer object
- * @param {String} action - Action type: 'created', 'published', 'updated', 'cancelled'
- */
 async function sendDiscordNotification(webhookUrl, event, organizer, action = 'published') {
   if (!webhookUrl || !webhookUrl.includes('discord.com/api/webhooks/')) {
-    return; // No webhook or invalid URL
+    return; 
   }
 
   try {
-    // Determine embed color based on action
     const colors = {
-      created: 0x5865F2,    // Discord Blurple
-      published: 0x57F287,  // Green
-      updated: 0xFEE75C,    // Yellow
-      cancelled: 0xED4245,  // Red
+      created: 0x5865F2,    
+      published: 0x57F287,  
+      updated: 0xFEE75C,    
+      cancelled: 0xED4245,  
     };
 
-    // Determine action emoji
-    const emojis = {
-      created: '📝',
-      published: '🎉',
-      updated: '🔄',
-      cancelled: '❌',
-    };
-
-    // Format dates
     const formatDate = (date) => {
       return new Date(date).toLocaleString('en-US', {
         month: 'short',
@@ -40,26 +23,24 @@ async function sendDiscordNotification(webhookUrl, event, organizer, action = 'p
       });
     };
 
-    // Build embed fields
     const fields = [
       {
-        name: '📅 Event Date',
+        name: 'Event Date',
         value: `${formatDate(event.eventStartDate)} - ${formatDate(event.eventEndDate)}`,
         inline: false,
       },
       {
-        name: '⏰ Registration Deadline',
+        name: 'Registration Deadline',
         value: formatDate(event.registrationDeadline),
         inline: true,
       },
       {
-        name: '🎟️ Event Type',
+        name: 'Event Type',
         value: event.eventType === 'normal' ? 'Regular Event' : 'Merchandise Sale',
         inline: true,
       },
     ];
 
-    // Add eligibility
     const eligibilityText = 
       event.eligibility === 'all' ? 'All Participants' :
       event.eligibility === 'iiit-only' ? 'IIIT Students Only' :
@@ -71,42 +52,38 @@ async function sendDiscordNotification(webhookUrl, event, organizer, action = 'p
       inline: true,
     });
 
-    // Add fee for normal events
     if (event.eventType === 'normal') {
       fields.push({
-        name: '💰 Registration Fee',
+        name: 'Registration Fee',
         value: event.registrationFee === 0 ? 'Free' : `₹${event.registrationFee}`,
         inline: true,
       });
     }
 
-    // Add registration limit
     if (event.registrationLimit) {
       fields.push({
-        name: '📊 Capacity',
+        name: 'Capacity',
         value: `${event.currentRegistrations || 0} / ${event.registrationLimit}`,
         inline: true,
       });
     } else {
       fields.push({
-        name: '📊 Capacity',
+        name: 'Capacity',
         value: 'Unlimited',
         inline: true,
       });
     }
 
-    // Add tags if present
     if (event.tags && event.tags.length > 0) {
       fields.push({
-        name: '🏷️ Tags',
+        name: 'Tags',
         value: event.tags.join(', '),
         inline: false,
       });
     }
 
-    // Build the Discord embed
     const embed = {
-      title: `${emojis[action]} ${event.name}`,
+      title: `${event.name}`,
       description: event.description,
       color: colors[action] || 0x5865F2,
       fields: fields,
@@ -116,28 +93,24 @@ async function sendDiscordNotification(webhookUrl, event, organizer, action = 'p
       timestamp: new Date().toISOString(),
     };
 
-    // Add action-specific message
     let content = '';
     if (action === 'published') {
       content = `@everyone **New Event Published!**`;
     } else if (action === 'updated') {
       content = `**Event Updated:** ${event.name}`;
     } else if (action === 'cancelled') {
-      content = `⚠️ **Event Cancelled:** ${event.name}`;
+      content = `**Event Cancelled:** ${event.name}`;
     }
 
-    // Send to Discord
     const response = await axios.post(webhookUrl, {
       content: content,
       embeds: [embed],
       username: 'Felicity EMS',
-      avatar_url: 'https://i.imgur.com/4M34hi2.png', // Optional: Add your logo URL
+      avatar_url: 'https://i.imgur.com/4M34hi2.png', 
     });
 
-    console.log('✅ Discord notification sent successfully');
     return true;
   } catch (error) {
-    console.error('❌ Error sending Discord notification:', error.response?.data || error.message);
     return false;
   }
 }

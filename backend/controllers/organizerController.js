@@ -66,7 +66,6 @@ exports.changeOrganizerPassword = async (req, res, next) => {
   }
 };
 
-// Request password reset
 exports.requestPasswordReset = async (req, res, next) => {
   try {
     const { reason } = req.body;
@@ -78,7 +77,6 @@ exports.requestPasswordReset = async (req, res, next) => {
       });
     }
 
-    // Check if there's already a pending request
     const existingPending = await PasswordResetRequest.findOne({
       organizer: req.organizer._id,
       status: 'pending',
@@ -91,7 +89,6 @@ exports.requestPasswordReset = async (req, res, next) => {
       });
     }
 
-    // Create new request
     const resetRequest = await PasswordResetRequest.create({
       organizer: req.organizer._id,
       reason: reason.trim(),
@@ -107,7 +104,6 @@ exports.requestPasswordReset = async (req, res, next) => {
   }
 };
 
-// Get organizer's own reset requests
 exports.getMyResetRequests = async (req, res, next) => {
   try {
     const requests = await PasswordResetRequest.find({

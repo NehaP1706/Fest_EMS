@@ -1,10 +1,6 @@
 const QRCode = require('qrcode');
 const { v4: uuidv4 } = require('uuid');
 
-/**
- * Generate a unique ticket ID
- * @returns {string} Unique ticket ID
- */
 const generateTicketId = () => {
   const prefix = 'FEL';
   const timestamp = Date.now().toString(36).toUpperCase();
@@ -12,11 +8,6 @@ const generateTicketId = () => {
   return `${prefix}-${timestamp}-${random}`;
 };
 
-/**
- * Generate QR code from ticket data
- * @param {Object} ticketData - Data to encode in QR code
- * @returns {Promise<string>} Base64 encoded QR code
- */
 const generateQRCode = async (ticketData) => {
   try {
     const qrData = JSON.stringify(ticketData);
@@ -38,19 +29,6 @@ const generateQRCode = async (ticketData) => {
   }
 };
 
-/**
- * Create complete ticket with QR code
- * @param {Object} params - Ticket parameters
- * @param {string} params.eventId - Event ID
- * @param {string} params.eventName - Event name
- * @param {string} params.participantId - Participant ID
- * @param {string} params.participantName - Participant name
- * @param {string} params.participantEmail - Participant email
- * @param {string} params.eventType - Type of event (normal/merchandise)
- * @param {Date} params.eventDate - Event date
- * @param {string} params.teamName - Team name (optional)
- * @returns {Promise<Object>} Ticket object with ticketId and qrCode
- */
 const createTicket = async ({
   eventId,
   eventName,
@@ -60,7 +38,7 @@ const createTicket = async ({
   eventType,
   eventDate,
   teamName = null,
-  variantDetails = null, // For merchandise
+  variantDetails = null,
 }) => {
   try {
     const ticketId = generateTicketId();
@@ -92,16 +70,10 @@ const createTicket = async ({
   }
 };
 
-/**
- * Verify ticket from QR code data
- * @param {string} qrData - JSON string from scanned QR code
- * @returns {Object} Parsed ticket data
- */
 const verifyTicket = (qrData) => {
   try {
     const ticketData = JSON.parse(qrData);
     
-    // Validate required fields
     const requiredFields = ['ticketId', 'eventId', 'participantId', 'issuedAt'];
     for (const field of requiredFields) {
       if (!ticketData[field]) {
@@ -121,11 +93,6 @@ const verifyTicket = (qrData) => {
   }
 };
 
-/**
- * Generate ticket HTML for email
- * @param {Object} ticketInfo - Ticket information
- * @returns {string} HTML string
- */
 const generateTicketHTML = (ticketInfo) => {
   const {
     ticketId,
@@ -232,7 +199,7 @@ const generateTicketHTML = (ticketInfo) => {
     <body>
       <div class="ticket-container">
         <div class="ticket-header">
-          <h1>🎫 Felicity Event Ticket</h1>
+          <h1>Felicity Event Ticket</h1>
           <div class="badge">${eventType.toUpperCase()}</div>
         </div>
         <div class="ticket-body">

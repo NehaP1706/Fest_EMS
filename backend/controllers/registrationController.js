@@ -14,7 +14,6 @@ exports.registerForEvent = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Event not found' });
     }
 
-    // Check eligibility - CRITICAL: Block non-IIIT from IIIT-only events
     if (event.eligibility === 'IIIT Students Only') {
       if (!req.user.participantType || req.user.participantType.toLowerCase() !== 'iiit') {
         return res.status(403).json({ 
@@ -24,7 +23,6 @@ exports.registerForEvent = async (req, res, next) => {
       }
     }
 
-    // Check if organizer has manually closed registrations
     if (event.registrationsClosed) {
       return res.status(400).json({
         success: false,
@@ -32,14 +30,11 @@ exports.registerForEvent = async (req, res, next) => {
       });
     }
 
-    // Check registration window
     const canRegister = event.canRegister();
     if (!canRegister.allowed) {
       return res.status(400).json({ success: false, message: canRegister.reason });
     }
 
-    // Check if already registered — only block if an ACTIVE (non-cancelled) registration exists.
-    // Cancelled registrations are hard-deleted, but guard against status edge cases anyway.
     const existing = await Registration.findOne({
       event: eventId,
       participant: req.user._id,
@@ -49,7 +44,6 @@ exports.registerForEvent = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Already registered' });
     }
 
-    // Generate ticket
     const ticketId = generateTicketId();
     const qrData = {
       ticketId,
@@ -58,8 +52,6 @@ exports.registerForEvent = async (req, res, next) => {
       eventName: event.name,
     };
 
-    // Generate QR as both a data URL (for storing in DB) and a Buffer (for email CID attachment)
-    // Email clients like Gmail block data: URIs, so we embed the QR as a CID attachment instead
     const qrString = JSON.stringify(qrData);
     const qrCodeDataURL = await QRCode.toDataURL(qrString, {
       errorCorrectionLevel: 'H',
@@ -73,9 +65,8 @@ exports.registerForEvent = async (req, res, next) => {
       width: 300,
       margin: 1,
     });
-    const qrCode = qrCodeDataURL; // stored in DB as data URL
+    const qrCode = qrCodeDataURL; 
 
-    // Create registration
     const registration = await Registration.create({
       event: eventId,
       participant: req.user._id,
@@ -85,13 +76,10 @@ exports.registerForEvent = async (req, res, next) => {
       amountPaid: event.registrationFee,
     });
 
-    // Update event registration count
     event.currentRegistrations += 1;
     if (event.customForm) event.customForm.isLocked = true;
     await event.save();
 
-    // Send email with QR code embedded as a CID attachment
-    // This is required because Gmail and most email clients block data: URI images
     await sendEmail({
       to: req.user.email,
       subject: `Registration Confirmed - ${event.name}`,
@@ -100,14 +88,14 @@ exports.registerForEvent = async (req, res, next) => {
         eventName: event.name,
         eventDate: event.eventStartDate.toLocaleDateString(),
         ticketId,
-        qrCode: 'cid:qrcode',   // Reference the CID attachment in the HTML
+        qrCode: 'cid:qrcode',   
         eventType: event.eventType,
       }),
       attachments: [
         {
           filename: 'qrcode.png',
           content: qrCodeBuffer,
-          cid: 'qrcode',         // Content-ID referenced above as cid:qrcode
+          cid: 'qrcode',         
         },
       ],
     });
@@ -154,14 +142,8 @@ exports.cancelRegistration = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Registration already cancelled' });
     }
 
-    // Hard-delete the registration document so the participant can re-register later.
-    // The compound unique index { event, participant } would block re-registration if we
-    // only soft-flagged status = 'cancelled' — deleting removes that constraint.
-    // NOTE: Merchandise stock is intentionally NOT restored on cancellation
-    // (physical items are reserved and cannot be re-stocked automatically).
     await registration.deleteOne();
 
-    // Decrement the event's live registration count
     const event = await Event.findById(registration.event);
     if (event) {
       event.currentRegistrations = Math.max(0, event.currentRegistrations - 1);
@@ -178,7 +160,6 @@ exports.getEventRegistrations = async (req, res, next) => {
   try {
     const { eventId } = req.params;
     
-    // Verify the event belongs to this organizer
     const event = await Event.findById(eventId);
     
     if (!event) {
@@ -195,7 +176,6 @@ exports.getEventRegistrations = async (req, res, next) => {
       });
     }
     
-    // Fetch all registrations for this event
     const registrations = await Registration.find({ event: eventId })
       .populate('participant', 'firstName lastName email contactNumber participantType')
       .sort({ registeredAt: -1 });
@@ -214,7 +194,6 @@ exports.getEventPurchases = async (req, res, next) => {
   try {
     const { eventId } = req.params;
     
-    // Verify the event belongs to this organizer
     const event = await Event.findById(eventId);
     
     if (!event) {
@@ -231,7 +210,6 @@ exports.getEventPurchases = async (req, res, next) => {
       });
     }
     
-    // Fetch all merchandise purchases for this event
     const MerchandisePurchase = require('../models/MerchandisePurchase');
     const purchases = await MerchandisePurchase.find({ event: eventId })
       .populate('participant', 'firstName lastName email contactNumber participantType')
