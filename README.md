@@ -166,3 +166,26 @@ npm start
 Proceed to access the entire project on `http://localhost:5000/`
 
 NOTE: The mailing services and uploads will not work for the deployed version, all other features are available at: `https://fest-ems.vercel.app/`
+
+## Test users
+
+| Username | Password |
+|---|---|
+| `osdg@felicity-org.com` | `uoBE1sgsrTCp` |
+| `merchandise.team@felicity-org.com` | `rqN4iLyzcKN9` |
+| `tvrqc@felicity-org.com` | `LazGdHRchlC4` |
+| `adventure.group@felicity-org.com` | `*cAA20qDgPRB` |
+| `queer.collective@felicity-org.com` | `pT^nPj8XpX4@` |
+| `tdc@felicity-org.com` | `%jL&l^IIRk8z` |
+| `asec@felicity-org.com` | `t@BkilVt5!DC` |
+| `pentaprism@felicity-org.com` | `kXq2dXQr2wKe` |
+| `lit.club@felicity-org.com` | `Q3toj5Ri!3zV` |
+| `chess.club@felicity-org.com` | `kbiGEIAxHC@7` |
+| `test1@iiit.ac.in` | `test1test1` |
+| `test2@iiit.ac.in` | `test2test2` |
+| `test3@iiit.ac.in` | `test3test3` |
+| `test4@iiit.ac.in` | `test4test4` |
+| `test5@iiit.ac.in` | `test5test5` |
+| `test6@iiit.ac.in` | `test6test6` |
+| `test7@iiit.ac.in` | `test7test7` |
+| `admin@felicity.com` | `Admin@123456` |
